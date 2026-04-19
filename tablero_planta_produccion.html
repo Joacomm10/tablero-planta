@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero de Producción</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px}
+.app{max-width:1200px;margin:0 auto;padding:1rem}
+.login-wrap{max-width:360px;margin:4rem auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:8px;background:#fff;border:1px solid #e5e5e0;border-radius:10px;padding:10px 14px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{padding:6px 14px;border-radius:8px;border:1px solid #d5d5d0;font-size:12px;cursor:pointer;background:transparent;color:#666}
+.tab.active{background:#eef4fd;color:#1a56a0;font-weight:500;border-color:#93b8e8}
+.sec{display:none}.sec.active{display:block}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem}
+.kcard{background:#f0efe8;border-radius:8px;padding:12px 14px}
+.klabel{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.kval{font-size:20px;font-weight:500;color:#1a1a1a}
+.ksub{font-size:11px;color:#888;margin-top:2px}
+.kcard.ok .kval{color:#0f6e56}.kcard.warn .kval{color:#854f0b}.kcard.danger .kval{color:#a32d2d}
+.card{background:#fff;border:1px solid #e5e5e0;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.ctitle{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:10px;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:.04em;padding:5px 6px;border-bottom:1px solid #f0efe8}
+td{padding:7px 6px;border-bottom:1px solid #f0efe8;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500;white-space:nowrap}
+.bok{background:#e1f5ee;color:#085041}.bwarn{background:#faeeda;color:#633806}.bdanger{background:#fcebeb;color:#791f1f}.binfo{background:#e6f1fb;color:#0c447c}.bgray{background:#f1efe8;color:#444}.bpurple{background:#eeedfe;color:#3c3489}.bteal{background:#e1f5ee;color:#085041}
+.frow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:3px;flex:1;min-width:90px}
+.fg label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.04em}
+input,select{padding:7px 9px;font-size:12px;border-radius:8px;border:1px solid #d5d5d0;background:#fff;color:#1a1a1a;width:100%}
+input[type=password]{letter-spacing:2px}
+input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px rgba(55,138,221,0.1)}
+.btn{padding:7px 16px;border-radius:8px;border:1px solid #d5d5d0;background:#f0efe8;color:#1a1a1a;font-size:12px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{background:#e5e5e0}
+.btn-primary{background:#e6f1fb;color:#0c447c;border-color:#93b8e8}
+.btn-primary:hover{background:#d0e5f8}
+.btn-sm{padding:2px 8px;font-size:10px;border-radius:6px;border:1px solid #e0e0da;background:transparent;color:#888;cursor:pointer}
+.btn-sm:hover{background:#f0efe8}
+.alert-row{background:#faeeda;border:1px solid #f0a020;border-radius:8px;padding:8px 12px;font-size:12px;color:#633806;margin-bottom:6px}
+.sechead{font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:1rem}
+.bar-wrap{height:6px;background:#f0efe8;border-radius:3px;overflow:hidden;margin-top:3px}
+.bar{height:100%;border-radius:3px}
+.prot-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.ptab{padding:4px 12px;border-radius:99px;border:1px solid #d5d5d0;font-size:11px;cursor:pointer;background:transparent;color:#666}
+.ptab.active{background:#e6f1fb;color:#0c447c;border-color:#93b8e8;font-weight:500}
+.modo-tabs{display:flex;gap:0;margin-bottom:1rem;border:1px solid #d5d5d0;border-radius:8px;overflow:hidden}
+.mtab{flex:1;padding:9px;font-size:12px;cursor:pointer;background:transparent;color:#666;border:none;border-right:1px solid #d5d5d0;text-align:center}
+.mtab:last-child{border-right:none}
+.mtab.active{background:#e6f1fb;color:#0c447c;font-weight:500}
+.user-bar{display:flex;align-items:center;gap:10px;font-size:12px;color:#666}
+.user-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;background:#e6f1fb;color:#0c447c}
+.substk{padding:6px 10px;background:#f0efe8;border-radius:8px;font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.substk-low{background:#faeeda}
+.substk-zero{background:#fcebeb}
+.info-box{background:#f0efe8;border-radius:8px;padding:8px 12px;font-size:11px;color:#666;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="card">
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <div style="width:52px;height:52px;border-radius:50%;background:#e6f1fb;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;color:#0c447c;font-weight:600">P</div>
+        <div style="font-size:17px;font-weight:500">Planta de producción</div>
+        <div style="font-size:12px;color:#888;margin-top:4px">Ingresá con tu usuario</div>
+      </div>
+      <div class="fg" style="margin-bottom:10px"><label>Usuario</label>
+        <select id="login-user"><option value="">Seleccionar...</option><option value="gerente">Gerente de operaciones</option><option value="cocina">Jefe de cocina</option></select>
+      </div>
+      <div class="fg" style="margin-bottom:16px"><label>Contraseña</label>
+        <input type="password" id="login-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:10px" onclick="doLogin()">Ingresar</button>
+      <div id="login-error" style="color:#a32d2d;font-size:11px;text-align:center;margin-top:8px;min-height:16px"></div>
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #f0efe8;font-size:10px;color:#aaa;text-align:center">gerente → <strong>1234</strong> &nbsp;|&nbsp; cocina → <strong>5678</strong><br>Cambiar desde panel Admin</div>
+    </div>
+  </div>
+</div>
+
+<div id="main-screen" style="display:none">
+<div class="topbar">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('resumen',this)">Resumen</button>
+    <button class="tab" onclick="showTab('ingreso',this)">Ingreso MP</button>
+    <button class="tab" onclick="showTab('proceso',this)">Proceso</button>
+    <button class="tab" onclick="showTab('stock',this)">Stock</button>
+    <button class="tab" onclick="showTab('ventas',this)">Ventas</button>
+    <button class="tab" onclick="showTab('balance',this)">Balance</button>
+    <button class="tab" onclick="showTab('calidad',this)">Calidad</button>
+    <button class="tab" id="tab-admin" style="display:none" onclick="showTab('admin',this)">Admin</button>
+  </div>
+  <div class="user-bar">
+    <div class="user-avatar" id="user-avatar">G</div>
+    <span id="user-label">Gerente</span>
+    <button class="btn-sm" onclick="doLogout()">Salir</button>
+    <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="exportarExcel()">Exportar Excel</button>
+  </div>
+</div>
+<div id="alerts-container"></div>
+<div id="resumen" class="sec active"></div>
+<div id="ingreso" class="sec"></div>
+<div id="proceso" class="sec"></div>
+<div id="stock" class="sec"></div>
+<div id="ventas" class="sec"></div>
+<div id="balance" class="sec"></div>
+<div id="calidad" class="sec"></div>
+<div id="admin" class="sec"></div>
+</div>
+</div>
+
+<script>
+const PROTEINAS_LIST=['Tapa de asado','Pechuga','Solomillo','Bondiola','Lomo','Cuadril'];
+const TEORICO={'Tapa de asado':{desp_limpieza_pct:43.8,coccion_pct:63.3},'Pechuga':{desp_limpieza_pct:3.5,coccion_pct:80.0},'Solomillo':{desp_limpieza_pct:15.5,coccion_pct:81.4},'Bondiola':{desp_limpieza_pct:1.2,coccion_pct:null},'Lomo':{desp_limpieza_pct:19.7,coccion_pct:null},'Cuadril':{desp_limpieza_pct:25.6,coccion_pct:74.7}};
+const SUB_STOCKS={'Tapa de asado':[{key:'tapa_brisket_crudo',label:'Brisket crudo',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'tapa_recortes',label:'Recortes tapa',estado:'crudo',color:'#faeeda',tc:'#633806'},{key:'tapa_cocida',label:'Tapa cocida (ternera)',estado:'cocido',color:'#e1f5ee',tc:'#085041'},{key:'tapa_recortes_cocidos',label:'Recortes cocidos (goulash/pulled)',estado:'cocido',color:'#eaf3de',tc:'#27500a'}],'Pechuga':[{key:'pechuga_medallon_crudo',label:'Medallones crudos',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'pechuga_tiras_crudo',label:'Tiras/cubos crudos',estado:'crudo',color:'#faeeda',tc:'#633806'},{key:'pechuga_medallon_cocido',label:'Medallones cocidos',estado:'cocido',color:'#e1f5ee',tc:'#085041'},{key:'pechuga_tiras_cocido',label:'Tiras/cubos cocidos',estado:'cocido',color:'#eaf3de',tc:'#27500a'}],'Solomillo':[{key:'solomillo_medallon_crudo',label:'Medallones crudos 170g',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'solomillo_tiras_crudo',label:'Tiras crudas',estado:'crudo',color:'#faeeda',tc:'#633806'},{key:'solomillo_medallon_cocido',label:'Medallones cocidos',estado:'cocido',color:'#e1f5ee',tc:'#085041'},{key:'solomillo_tiras_cocido',label:'Tiras cocidas',estado:'cocido',color:'#eaf3de',tc:'#27500a'}],'Bondiola':[{key:'bondiola_medallon_crudo',label:'Medallones crudos 250g',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'bondiola_entera_crudo',label:'Pieza entera (pulled)',estado:'crudo',color:'#faeeda',tc:'#633806'},{key:'bondiola_medallon_cocido',label:'Medallones cocidos',estado:'cocido',color:'#e1f5ee',tc:'#085041'},{key:'bondiola_pulled',label:'Pulled pork cocido',estado:'cocido',color:'#eaf3de',tc:'#27500a'}],'Lomo':[{key:'lomo_medallon_crudo',label:'Medallones crudos 180g',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'lomo_recortes',label:'Recortes lomo',estado:'crudo',color:'#faeeda',tc:'#633806'}],'Cuadril':[{key:'cuadril_tiras_crudo',label:'Tiras crudas',estado:'crudo',color:'#e6f1fb',tc:'#0c447c'},{key:'cuadril_tiras_cocido',label:'Tiras cocidas',estado:'cocido',color:'#e1f5ee',tc:'#085041'}]};
+const PRODUCTOS=[{nombre:'Bondiola laqueada - 250g',proteina:'Bondiola',kgLPU:0.25,substock:'bondiola_medallon_cocido',ptKey:'Bondiola laqueada 250g'},{nombre:'Curry de pollo - 200g',proteina:'Pechuga',kgLPU:0.11,substock:'pechuga_tiras_cocido',ptKey:'Curry pollo 200g'},{nombre:'Curry de pollo - 300g',proteina:'Pechuga',kgLPU:0.17,substock:'pechuga_tiras_cocido',ptKey:'Curry pollo 300g'},{nombre:'Goulash - 200g',proteina:'Tapa de asado',kgLPU:0.164,substock:'tapa_recortes_cocidos',ptKey:'Goulash 200g'},{nombre:'Pechuga con limón - 170g',proteina:'Pechuga',kgLPU:0.17,substock:'pechuga_medallon_cocido',ptKey:'Pechuga limón 170g'},{nombre:'Pechuga con limón - 250g',proteina:'Pechuga',kgLPU:0.25,substock:'pechuga_medallon_cocido',ptKey:'Pechuga limón 250g'},{nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga',kgLPU:0.17,substock:'pechuga_medallon_cocido',ptKey:'Pechuga tomillo 170g'},{nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga',kgLPU:0.25,substock:'pechuga_medallon_cocido',ptKey:'Pechuga tomillo 250g'},{nombre:'Pechuga provenzal - 170g',proteina:'Pechuga',kgLPU:0.17,substock:'pechuga_medallon_cocido',ptKey:'Pechuga provenzal 170g'},{nombre:'Pechuga provenzal - 250g',proteina:'Pechuga',kgLPU:0.25,substock:'pechuga_medallon_cocido',ptKey:'Pechuga provenzal 250g'},{nombre:'Pulled Beef - 250g',proteina:'Tapa de asado',kgLPU:0.263,substock:'tapa_recortes_cocidos',ptKey:'Pulled Beef 250g'},{nombre:'Pulled Pork - 250g',proteina:'Bondiola',kgLPU:0.224,substock:'bondiola_pulled',ptKey:'Pulled Pork 250g'},{nombre:'Solomillo hawaiano - 170g',proteina:'Solomillo',kgLPU:0.17,substock:'solomillo_medallon_cocido',ptKey:'Solomillo hawaiano 170g'},{nombre:'Ternera braseada - 150g',proteina:'Tapa de asado',kgLPU:0.15,substock:'tapa_cocida',ptKey:'Ternera braseada 150g'},{nombre:'Ternera braseada - 200g',proteina:'Tapa de asado',kgLPU:0.20,substock:'tapa_cocida',ptKey:'Ternera braseada 200g'},{nombre:'Tiras de cuadril con hongos - 170g',proteina:'Cuadril',kgLPU:0.181,substock:'cuadril_tiras_cocido',ptKey:'Tiras cuadril hongos 170g'},{nombre:'Tiras de cuadril con vegetales - 200g',proteina:'Cuadril',kgLPU:0.089,substock:'cuadril_tiras_cocido',ptKey:'Tiras cuadril veg 200g'},{nombre:'Tiras de cuadril con vegetales - 300g',proteina:'Cuadril',kgLPU:0.133,substock:'cuadril_tiras_cocido',ptKey:'Tiras cuadril veg 300g'},{nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga',kgLPU:0.085,substock:'pechuga_tiras_cocido',ptKey:'Tiras pollo veg 200g'},{nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga',kgLPU:0.127,substock:'pechuga_tiras_cocido',ptKey:'Tiras pollo veg 300g'},{nombre:'Pollo teriyaki - 200g',proteina:'Pechuga',kgLPU:0.088,substock:'pechuga_tiras_cocido',ptKey:'Pollo teriyaki 200g'},{nombre:'Pollo teriyaki - 300g',proteina:'Pechuga',kgLPU:0.131,substock:'pechuga_tiras_cocido',ptKey:'Pollo teriyaki 300g'},{nombre:'Tiras de solomillo - 200g',proteina:'Solomillo',kgLPU:0.085,substock:'solomillo_tiras_cocido',ptKey:'Tiras solomillo 200g'},{nombre:'Tiras de solomillo - 300g',proteina:'Solomillo',kgLPU:0.127,substock:'solomillo_tiras_cocido',ptKey:'Tiras solomillo 300g'},{nombre:'Wrap César',proteina:'Pechuga',kgLPU:0.1,substock:'pechuga_tiras_cocido',ptKey:'Wrap César'},{nombre:'Ensalada César',proteina:'Pechuga',kgLPU:0.1,substock:'pechuga_tiras_cocido',ptKey:'Ensalada César'},{nombre:'Wrap criollo',proteina:'Tapa de asado',kgLPU:0.1,substock:'tapa_recortes_cocidos',ptKey:'Wrap criollo'},{nombre:'Wrap italiano',proteina:'Pechuga',kgLPU:0.1,substock:'pechuga_tiras_cocido',ptKey:'Wrap italiano'},{nombre:'Wrap pastor',proteina:'Bondiola',kgLPU:0.1,substock:'bondiola_pulled',ptKey:'Wrap pastor'},{nombre:'Wrap mediterráneo',proteina:'Tapa de asado',kgLPU:0.1,substock:'tapa_recortes_cocidos',ptKey:'Wrap mediterráneo'},{nombre:'Lomo al tomillo - 150g',proteina:'Lomo',kgLPU:0.18,substock:'lomo_medallon_crudo',ptKey:'Lomo al tomillo 150g'}];
+
+function initSubStocks(){const s={};Object.values(SUB_STOCKS).flat().forEach(ss=>{s[ss.key]=0;});s['tapa_recortes']=117.6;s['lomo_recortes']=10.57;s['pechuga_tiras_cocido']=18.46;s['cuadril_tiras_cocido']=11.23;s['solomillo_tiras_cocido']=4.58;return s;}
+function initPT(){return {'Ternera braseada 200g':99,'Ternera braseada 150g':205,'Lomo al tomillo 150g':63,'Pechuga provenzal 170g':12,'Pechuga provenzal 250g':40,'Pechuga tomillo 170g':29,'Pechuga tomillo 250g':49,'Pechuga limón 170g':32,'Pechuga limón 250g':44,'Tiras pollo veg 200g':22,'Tiras pollo veg 300g':36,'Curry pollo 200g':62,'Curry pollo 300g':50,'Pollo teriyaki 200g':30,'Pollo teriyaki 300g':27,'Bondiola laqueada 250g':62,'Pulled Pork 250g':34,'Solomillo hawaiano 170g':122,'Tiras solomillo 200g':6,'Tiras solomillo 300g':9,'Tiras cuadril veg 200g':20,'Tiras cuadril veg 300g':64,'Tiras cuadril hongos 170g':24,'Goulash 200g':0,'Pulled Beef 250g':0,'Wrap César':0,'Ensalada César':0,'Wrap criollo':0,'Wrap italiano':0,'Wrap pastor':0,'Wrap mediterráneo':0};}
+
+const KEY='planta_v4';
+function load(){try{const d=localStorage.getItem(KEY);if(d)return JSON.parse(d);}catch(e){}return{ingresos:[],procesos:[],ventas:[],calidad:[],subStocks:initSubStocks(),pt:initPT(),crudoSinProcesar:{},passwords:{gerente:'1234',cocina:'5678'}};}
+function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
+
+let DB=load();let currentUser=null;let activeProt=PROTEINAS_LIST[0];let activeModo='limpieza';
+function today(){return new Date().toISOString().slice(0,10);}
+function fmt(n,d=2){return(isNaN(n)||n===null||n===undefined)?'0.00':parseFloat(n).toFixed(d);}
+function getSS(k){return DB.subStocks[k]||0;}
+function setSS(k,v){DB.subStocks[k]=Math.max(0,parseFloat(v)||0);}
+function getPT(k){return DB.pt[k]||0;}
+function setPT(k,v){DB.pt[k]=Math.max(0,parseInt(v)||0);}
+function findSS(key){for(const[p,list]of Object.entries(SUB_STOCKS)){const f=list.find(s=>s.key===key);if(f)return f;}return null;}
+
+function doLogin(){
+  const u=document.getElementById('login-user').value;
+  const p=document.getElementById('login-pass').value;
+  if(!u){document.getElementById('login-error').textContent='Seleccioná un usuario.';return;}
+  if(p!==DB.passwords[u]){document.getElementById('login-error').textContent='Contraseña incorrecta.';return;}
+  currentUser=u;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-screen').style.display='block';
+  document.getElementById('user-label').textContent=u==='gerente'?'Gerente de operaciones':'Jefe de cocina';
+  document.getElementById('user-avatar').textContent=u==='gerente'?'G':'JC';
+  if(u==='gerente')document.getElementById('tab-admin').style.display='';
+  checkAlertas();renderTab('resumen');
+}
+function doLogout(){currentUser=null;document.getElementById('main-screen').style.display='none';document.getElementById('login-screen').style.display='block';document.getElementById('login-pass').value='';document.getElementById('login-error').textContent='';}
+function showTab(t,el){document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));document.getElementById(t).classList.add('active');if(el)el.classList.add('active');renderTab(t);}
+function renderTab(t){checkAlertas();({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,stock:renderStock,ventas:renderVentas,balance:renderBalance,calidad:renderCalidad,admin:renderAdmin}[t]||function(){})();}
+
+function checkAlertas(){
+  const ac=document.getElementById('alerts-container');if(!ac)return;
+  const alerts=[];
+  DB.procesos.forEach(p=>{const teo=TEORICO[p.proteina];if(!teo)return;if(p.tipo==='limpieza'&&p.kg_in>0){const r=p.kg_desperdicio/p.kg_in*100,t=teo.desp_limpieza_pct;if(Math.abs(r-t)>8)alerts.push('Desvío desperdicio '+p.proteina+' ('+p.fecha+'): real '+r.toFixed(1)+'% vs teórico '+t+'%');}if(p.tipo==='coccion'&&p.kg_in>0&&teo.coccion_pct){const r=p.kg_out/p.kg_in*100,t=teo.coccion_pct;if(Math.abs(r-t)>8)alerts.push('Desvío cocción '+p.proteina+' ('+p.fecha+'): real '+r.toFixed(1)+'% vs teórico '+t+'%');}});
+  Object.values(SUB_STOCKS).flat().forEach(s=>{const v=getSS(s.key);if(v<2&&v>0)alerts.push('Stock bajo: '+s.label+' — '+fmt(v,2)+' kg');});
+  Object.entries(DB.pt).forEach(([k,v])=>{if(v<=5&&v>0)alerts.push('Stock bajo: '+k+' — '+v+' unidades');});
+  ac.innerHTML=alerts.map(a=>'<div class="alert-row">'+a+'</div>').join('');
+}
+
+function renderResumen(){
+  const el=document.getElementById('resumen');
+  const totalIn=DB.ingresos.reduce((a,r)=>a+r.kg_bruto,0);
+  const totalDesp=DB.procesos.filter(p=>p.tipo==='limpieza').reduce((a,p)=>a+p.kg_desperdicio,0);
+  const totalMerma=DB.procesos.filter(p=>p.tipo==='coccion').reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
+  const totalVU=DB.ventas.reduce((a,v)=>a+v.unidades,0);
+  const rendGlobal=totalIn>0?((totalIn-totalDesp)/totalIn*100):0;
+  const totalPT=Object.values(DB.pt).reduce((a,v)=>a+v,0);
+  el.innerHTML='<div class="kgrid"><div class="kcard '+(rendGlobal>=70?'ok':rendGlobal>=55?'warn':'danger')+'"><div class="klabel">Rendimiento limpieza</div><div class="kval">'+rendGlobal.toFixed(1)+'%</div><div class="ksub">neto / bruto ingresado</div></div><div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">'+fmt(totalIn,1)+'</div><div class="ksub">total acumulado</div></div><div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">'+fmt(totalDesp,1)+' kg</div><div class="ksub">'+(totalIn>0?(totalDesp/totalIn*100).toFixed(1):0)+'% del ingreso</div></div><div class="kcard warn"><div class="klabel">Merma cocción</div><div class="kval">'+fmt(totalMerma,1)+' kg</div><div class="ksub">pérdida en cocción</div></div><div class="kcard ok"><div class="klabel">Stock terminado</div><div class="kval">'+totalPT+'</div><div class="ksub">unidades disponibles</div></div><div class="kcard"><div class="klabel">Unidades vendidas</div><div class="kval">'+totalVU+'</div><div class="ksub">total histórico</div></div></div>'
+  +'<div class="card"><div class="ctitle">Sub-stocks internos</div>'+PROTEINAS_LIST.map(prot=>{const subs=SUB_STOCKS[prot];return '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f0efe8"><div style="font-size:12px;font-weight:500;margin-bottom:6px">'+prot+'</div><div style="display:flex;flex-wrap:wrap;gap:6px">'+subs.map(s=>{const v=getSS(s.key);return '<div style="padding:4px 10px;border-radius:99px;font-size:11px;background:'+(v>0?s.color:'#f0efe8')+';color:'+(v>0?s.tc:'#888')+';border:1px solid #e5e5e0">'+s.label+': <strong>'+fmt(v,2)+' kg</strong></div>';}).join('')+'</div></div>';}).join('')+'</div>'
+  +'<div class="card"><div class="ctitle">Rendimiento vs teórico</div>'+PROTEINAS_LIST.map(prot=>{const teo=TEORICO[prot];const procs=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='limpieza');if(procs.length===0)return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0efe8;font-size:12px"><span style="color:#888">'+prot+'</span><span class="badge bgray">Sin datos</span></div>';const kgIn=procs.reduce((a,r)=>a+r.kg_in,0);const kgD=procs.reduce((a,r)=>a+r.kg_desperdicio,0);const rReal=kgIn>0?((kgIn-kgD)/kgIn*100):0;const rTeo=100-teo.desp_limpieza_pct;const dev=rReal-rTeo;const dc=Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';return '<div style="padding:7px 0;border-bottom:1px solid #f0efe8"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px"><span style="font-size:12px;font-weight:500">'+prot+'</span><div style="display:flex;gap:6px;align-items:center"><span style="font-size:11px;color:#888">Teórico '+rTeo.toFixed(1)+'%</span><span style="font-size:11px;font-weight:500">'+rReal.toFixed(1)+'%</span><span class="badge '+dc+'">'+(dev>=0?'+':'')+dev.toFixed(1)+'%</span></div></div><div class="bar-wrap"><div class="bar" style="width:'+Math.min(rReal,100)+'%;background:'+(Math.abs(dev)<3?'#1D9E75':Math.abs(dev)<8?'#EF9F27':'#E24B4A')+'"></div></div></div>';}).join('')+'</div>';
+}
+
+function renderIngreso(){
+  const el=document.getElementById('ingreso');
+  el.innerHTML='<p class="sechead">Registrar ingreso de materia prima</p><div class="card"><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="i-fecha" value="'+today()+'"></div><div class="fg"><label>Proteína</label><select id="i-prot">'+PROTEINAS_LIST.map(p=>'<option>'+p+'</option>').join('')+'</select></div><div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div><div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div><div class="fg"><label>Proveedor</label><input type="text" id="i-prov" placeholder="Opcional"></div></div><button class="btn btn-primary" onclick="addIngreso()">+ Agregar ingreso</button></div><div class="card"><div class="ctitle">Ingresos registrados</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Usuario</th><th></th></tr></thead><tbody>'+(DB.ingresos.length===0?'<tr><td colspan="8" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':DB.ingresos.slice().reverse().map((r,i)=>{const idx=DB.ingresos.length-1-i;return '<tr><td>'+r.fecha+'</td><td>'+r.proteina+'</td><td>'+fmt(r.kg_bruto,2)+'</td><td>$'+fmt(r.costo_kg,2)+'</td><td>$'+fmt(r.kg_bruto*r.costo_kg,2)+'</td><td>'+( r.proveedor||'-')+'</td><td style="color:#888">'+( r.usuario||'-')+'</td><td>'+(currentUser==='gerente'?'<button class="btn-sm" onclick="delIngreso('+idx+')">x</button>':'')+'</td></tr>';}).join(''))+'</tbody></table></div></div>';
+}
+function addIngreso(){const fecha=document.getElementById('i-fecha').value;const proteina=document.getElementById('i-prot').value;const kg=parseFloat(document.getElementById('i-kg').value);const costo=parseFloat(document.getElementById('i-costo').value)||0;const prov=document.getElementById('i-prov').value;if(!fecha||isNaN(kg)||kg<=0){alert('Completá fecha, proteína y kg bruto.');return;}DB.ingresos.push({fecha,proteina,kg_bruto:kg,costo_kg:costo,proveedor:prov,usuario:currentUser,id:Date.now()});if(!DB.crudoSinProcesar[proteina])DB.crudoSinProcesar[proteina]=0;DB.crudoSinProcesar[proteina]+=kg;save(DB);document.getElementById('i-kg').value='';document.getElementById('i-costo').value='';document.getElementById('i-prov').value='';renderIngreso();}
+function delIngreso(i){if(currentUser!=='gerente')return;const r=DB.ingresos[i];if(DB.crudoSinProcesar[r.proteina])DB.crudoSinProcesar[r.proteina]=Math.max(0,DB.crudoSinProcesar[r.proteina]-r.kg_bruto);DB.ingresos.splice(i,1);save(DB);renderIngreso();}
+
+function renderProceso(){
+  const el=document.getElementById('proceso');
+  const histHTML=DB.procesos.length===0?'<tr><td colspan="11" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':DB.procesos.slice().reverse().map((p,i)=>{const idx=DB.procesos.length-1-i;const teo=TEORICO[p.proteina];const rend=p.kg_in>0?(p.kg_out/p.kg_in*100):0;let teoVal=null;if(p.tipo==='limpieza'&&teo)teoVal=100-teo.desp_limpieza_pct;if(p.tipo==='coccion'&&teo&&teo.coccion_pct)teoVal=teo.coccion_pct;const dev=teoVal?rend-teoVal:null;const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':'bteal';return '<tr><td>'+p.fecha+'</td><td>'+p.proteina+'</td><td><span class="badge '+tl+'">'+p.tipo+'</span></td><td style="color:#888;font-size:11px">'+(p.origen||'—')+'</td><td style="color:#888;font-size:11px">'+(p.destino||'—')+'</td><td>'+fmt(p.kg_in,2)+'</td><td>'+fmt(p.kg_out,2)+'</td><td>'+fmt(p.kg_in-p.kg_out,2)+'</td><td>'+(p.tipo==='armado'?(p.unidades||0)+' u.':rend.toFixed(1)+'%')+'</td><td><span class="badge '+dc+'">'+(dev!==null?(dev>=0?'+':'')+dev.toFixed(1)+'%':'—')+'</span></td><td>'+(currentUser==='gerente'?'<button class="btn-sm" onclick="delProceso('+idx+')">x</button>':'')+'</td></tr>';}).join('');
+  el.innerHTML='<p class="sechead">Registrar proceso de producción</p><div class="prot-tabs">'+PROTEINAS_LIST.map(p=>'<button class="ptab'+(p===activeProt?' active':'')+'" onclick="setProtProceso(\''+p+'\',this)">'+p+'</button>').join('')+'</div><div class="modo-tabs"><button class="mtab'+(activeModo==='limpieza'?' active':'')+'" onclick="setModo(\'limpieza\',this)">1. Limpieza / despiece</button><button class="mtab'+(activeModo==='coccion'?' active':'')+'" onclick="setModo(\'coccion\',this)">2. Cocción</button><button class="mtab'+(activeModo==='armado'?' active':'')+'" onclick="setModo(\'armado\',this)">3. Armado de platos</button></div><div id="proceso-form"></div><div class="card"><div class="ctitle">Historial de procesos</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Proteína</th><th>Tipo</th><th>Origen</th><th>Destino</th><th>Kg entrada</th><th>Kg salida</th><th>Desp./merma</th><th>Rend.</th><th>vs Teo.</th><th></th></tr></thead><tbody>'+histHTML+'</tbody></table></div></div>';
+  renderProcesoForm();
+}
+function setProtProceso(p,el){activeProt=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
+function setModo(m,el){activeModo=m;document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
+
+function renderProcesoForm(){
+  const frm=document.getElementById('proceso-form');if(!frm)return;
+  const teo=TEORICO[activeProt];const subs=SUB_STOCKS[activeProt];
+  if(activeModo==='limpieza'){
+    const crudo=DB.crudoSinProcesar[activeProt]||0;const subsCrudos=subs.filter(s=>s.estado==='crudo');
+    frm.innerHTML='<div class="card"><div class="info-box">Crudo sin procesar disponible: <strong>'+fmt(crudo,2)+' kg</strong> &nbsp;|&nbsp; Desp. teórico: <strong>'+teo.desp_limpieza_pct+'%</strong></div><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="'+today()+'"></div><div class="fg" style="max-width:110px"><label>Kg entrada (bruto)</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div><div class="fg" style="max-width:110px"><label>Kg desperdicio</label><input type="number" id="pf-desp" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div></div><div style="font-size:11px;color:#888;margin-bottom:8px">Distribuí los kg limpios entre los sub-stocks:</div><div class="frow">'+subsCrudos.map(s=>'<div class="fg"><label>'+s.label+'</label><input type="number" id="pf-'+s.key+'" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div>').join('')+'</div><div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div><button class="btn btn-primary" onclick="addProcesoLimpieza()">+ Registrar limpieza</button></div>';
+  } else if(activeModo==='coccion'){
+    const subsCrudos=subs.filter(s=>s.estado==='crudo');const subsCocidos=subs.filter(s=>s.estado==='cocido');
+    frm.innerHTML='<div class="card"><div class="info-box">Seleccioná qué sub-stock vas a cocinar y adónde va el resultado.</div><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="'+today()+'"></div><div class="fg"><label>Sub-stock origen (crudo)</label><select id="pf-origen">'+subsCrudos.map(s=>'<option value="'+s.key+'">'+s.label+' — '+fmt(getSS(s.key),2)+' kg</option>').join('')+'</select></div><div class="fg"><label>Sub-stock destino (cocido)</label><select id="pf-destino">'+subsCocidos.map(s=>'<option value="'+s.key+'">'+s.label+'</option>').join('')+'</select></div></div><div class="frow"><div class="fg" style="max-width:110px"><label>Kg a cocinar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div><div class="fg" style="max-width:110px"><label>Kg cocidos resultado</label><input type="number" id="pf-kgout" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div></div><div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div><button class="btn btn-primary" onclick="addProcesoCoccion()">+ Registrar cocción</button></div>';
+  } else if(activeModo==='armado'){
+    const subsCocidos=subs.filter(s=>s.estado==='cocido');const prodsProt=PRODUCTOS.filter(p=>p.proteina===activeProt);
+    frm.innerHTML='<div class="card"><div class="info-box">Tomás kg de un sub-stock cocido y los convertís en unidades de producto terminado.</div><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="'+today()+'"></div><div class="fg"><label>Sub-stock cocido origen</label><select id="pf-origen">'+subsCocidos.map(s=>'<option value="'+s.key+'">'+s.label+' — '+fmt(getSS(s.key),2)+' kg</option>').join('')+'</select></div><div class="fg"><label>Producto a generar</label><select id="pf-producto" onchange="calcArmado()">'+prodsProt.map(p=>'<option value="'+p.ptKey+'">'+p.nombre+' ('+fmt(p.kgLPU,3)+' kg/u.)</option>').join('')+'</select></div></div><div class="frow"><div class="fg" style="max-width:110px"><label>Kg a usar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div><div class="fg" style="max-width:110px"><label>Unidades obtenidas</label><input type="number" id="pf-unidades" placeholder="0" oninput="calcArmado()"></div><div class="fg" style="max-width:110px"><label>Kg recorte armado</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div></div><div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div><button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button></div>';
+  }
+}
+function calcLimpieza(){const ki=parseFloat(document.getElementById('pf-kgin').value)||0;const kd=parseFloat(document.getElementById('pf-desp').value)||0;const subs=SUB_STOCKS[activeProt].filter(s=>s.estado==='crudo');const td=subs.reduce((a,s)=>{const el=document.getElementById('pf-'+s.key);return a+(parseFloat(el?el.value:0)||0);},0);const resto=ki-kd-td;const prev=document.getElementById('pf-prev');if(!prev)return;prev.innerHTML='Rendimiento: <strong>'+(ki>0?((ki-kd)/ki*100).toFixed(1):'-')+'%</strong> | Distribuido: <strong>'+fmt(td,2)+' kg</strong> | Diferencia: <strong style="color:'+(Math.abs(resto)<0.1?'#0f6e56':'#e24b4a')+'">'+fmt(resto,2)+' kg</strong>';}
+function calcCoccion(){const ki=parseFloat(document.getElementById('pf-kgin').value)||0;const ko=parseFloat(document.getElementById('pf-kgout').value)||0;const prev=document.getElementById('pf-prev');if(!prev)return;const teo=TEORICO[activeProt];prev.innerHTML='Rendimiento: <strong>'+(ki>0?(ko/ki*100).toFixed(1):'-')+'%</strong>'+(teo&&teo.coccion_pct?' | Teórico: <strong>'+teo.coccion_pct+'%</strong>':'')+' | Merma: <strong>'+fmt(ki-ko,2)+' kg</strong>';}
+function calcArmado(){const ki=parseFloat(document.getElementById('pf-kgin').value)||0;const uni=parseInt(document.getElementById('pf-unidades').value)||0;const sel=document.getElementById('pf-producto');if(!sel)return;const prod=PRODUCTOS.find(p=>p.ptKey===sel.value);const prev=document.getElementById('pf-prev');if(!prev||!prod||!ki||!uni)return;const ku=(prod.kgLPU*uni).toFixed(3);const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);prev.innerHTML='Kg teórico para '+uni+' u.: <strong>'+ku+' kg</strong> | Recorte estimado: <strong>'+rec+' kg</strong>';if(!document.getElementById('pf-recorte').value)document.getElementById('pf-recorte').value=rec;}
+function addProcesoLimpieza(){const fecha=document.getElementById('pf-fecha').value;const kgin=parseFloat(document.getElementById('pf-kgin').value);const kdesp=parseFloat(document.getElementById('pf-desp').value)||0;if(!fecha||isNaN(kgin)||kgin<=0){alert('Completá fecha y kg entrada.');return;}const subs=SUB_STOCKS[activeProt].filter(s=>s.estado==='crudo');const dists={};let td=0;subs.forEach(s=>{const el=document.getElementById('pf-'+s.key);const v=parseFloat(el?el.value:0)||0;dists[s.key]=v;td+=v;});DB.procesos.push({fecha,proteina:activeProt,tipo:'limpieza',kg_in:kgin,kg_out:kgin-kdesp,kg_desperdicio:kdesp,dists,origen:'Crudo sin procesar',destino:subs.map(s=>s.label).join(' / '),usuario:currentUser,id:Date.now()});if(DB.crudoSinProcesar[activeProt])DB.crudoSinProcesar[activeProt]=Math.max(0,DB.crudoSinProcesar[activeProt]-kgin);subs.forEach(s=>setSS(s.key,getSS(s.key)+(dists[s.key]||0)));save(DB);renderProceso();checkAlertas();}
+function addProcesoCoccion(){const fecha=document.getElementById('pf-fecha').value;const origen=document.getElementById('pf-origen').value;const destino=document.getElementById('pf-destino').value;const kgin=parseFloat(document.getElementById('pf-kgin').value);const kgout=parseFloat(document.getElementById('pf-kgout').value);if(!fecha||isNaN(kgin)||isNaN(kgout)||kgin<=0){alert('Completá todos los campos.');return;}const ssO=findSS(origen);const ssD=findSS(destino);if(getSS(origen)<kgin){if(!confirm('Stock insuficiente: hay '+fmt(getSS(origen),2)+' kg. ¿Continuás?'))return;}DB.procesos.push({fecha,proteina:activeProt,tipo:'coccion',kg_in:kgin,kg_out:kgout,kg_desperdicio:kgin-kgout,origen:ssO?ssO.label:'',destino:ssD?ssD.label:'',substock_origen:origen,substock_destino:destino,usuario:currentUser,id:Date.now()});setSS(origen,getSS(origen)-kgin);setSS(destino,getSS(destino)+kgout);save(DB);renderProceso();checkAlertas();}
+function addProcesoArmado(){const fecha=document.getElementById('pf-fecha').value;const origen=document.getElementById('pf-origen').value;const ptKey=document.getElementById('pf-producto').value;const kgin=parseFloat(document.getElementById('pf-kgin').value);const unidades=parseInt(document.getElementById('pf-unidades').value);const recorte=parseFloat(document.getElementById('pf-recorte').value)||0;if(!fecha||isNaN(kgin)||isNaN(unidades)||kgin<=0||unidades<=0){alert('Completá todos los campos.');return;}const ssO=findSS(origen);if(getSS(origen)<kgin){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',kg_in:kgin,kg_out:kgin-recorte,kg_desperdicio:recorte,unidades,origen:ssO?ssO.label:'',destino:ptKey,substock_origen:origen,usuario:currentUser,id:Date.now()});setSS(origen,getSS(origen)-kgin);setPT(ptKey,getPT(ptKey)+unidades);save(DB);renderProceso();checkAlertas();}
+function delProceso(i){if(currentUser!=='gerente'){alert('Solo el gerente puede eliminar.');return;}const p=DB.procesos[i];if(p.tipo==='limpieza'){DB.crudoSinProcesar[p.proteina]=(DB.crudoSinProcesar[p.proteina]||0)+p.kg_in;if(p.dists)Object.entries(p.dists).forEach(([k,v])=>setSS(k,getSS(k)-v));}if(p.tipo==='coccion'){setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);setSS(p.substock_destino,getSS(p.substock_destino)-p.kg_out);}if(p.tipo==='armado'){setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);setPT(p.destino,getPT(p.destino)-p.unidades);}DB.procesos.splice(i,1);save(DB);renderProceso();checkAlertas();}
+
+function renderStock(){
+  const el=document.getElementById('stock');let html='<p class="sechead">Stock completo por proteína</p>';
+  PROTEINAS_LIST.forEach(prot=>{const subs=SUB_STOCKS[prot];const prodsProt=PRODUCTOS.filter(p=>p.proteina===prot);const ptKeys=[...new Set(prodsProt.map(p=>p.ptKey))];const crudo=DB.crudoSinProcesar[prot]||0;
+    html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="ctitle" style="margin-bottom:0">'+prot+'</div>'+(crudo>0?'<span class="badge bwarn">'+fmt(crudo,1)+' kg crudo</span>':'')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Sub-stocks internos</div>'+subs.map(s=>{const v=getSS(s.key);return '<div class="substk'+(v<=0.5&&v>0?' substk-low':'')+(v===0?' substk-zero':'')+'" style="background:'+(v>0?s.color:'#f0efe8')+'"><span style="color:'+(v>0?s.tc:'#888')+';font-size:12px">'+s.label+'</span><div style="display:flex;align-items:center;gap:4px">'+(currentUser==='gerente'?'<input type="number" value="'+fmt(v,2)+'" step="0.01" style="width:65px;padding:3px 6px;font-size:11px;text-align:right" onchange="editSS(\''+s.key+'\',this.value)">':'<span style="font-weight:500;color:'+(v>0?s.tc:'#888')+'">'+fmt(v,2)+'</span>')+'<span style="font-size:10px;color:#888">kg</span></div></div>';}).join('')+'</div><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Producto terminado</div>'+ptKeys.map(k=>{const v=getPT(k);return '<div class="substk'+(v<=5&&v>0?' substk-low':'')+(v===0?' substk-zero':'')+'"><span style="font-size:12px;'+(v===0?'color:#a32d2d':v<=5?'color:#854f0b':'')+'">'+(v===0?'⚠ ':'')+k+'</span><div style="display:flex;align-items:center;gap:4px">'+(currentUser==='gerente'?'<input type="number" value="'+v+'" style="width:55px;padding:3px 6px;font-size:11px;text-align:right" onchange="editPT(\''+k+'\',this.value)">':'<span style="font-weight:500">'+v+'</span>')+'<span style="font-size:10px;color:#888">u.</span></div></div>';}).join('')+'</div></div></div>';
+  });el.innerHTML=html;
+}
+function editSS(k,v){if(currentUser!=='gerente')return;setSS(k,parseFloat(v));save(DB);}
+function editPT(k,v){if(currentUser!=='gerente')return;setPT(k,parseInt(v));save(DB);}
+
+function renderVentas(){
+  const el=document.getElementById('ventas');const opts=PRODUCTOS.map(p=>'<option value="'+p.nombre+'">'+p.nombre+'</option>').join('');
+  el.innerHTML='<p class="sechead">Registrar ventas</p><div class="card"><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="v-fecha" value="'+today()+'"></div><div class="fg"><label>Producto</label><select id="v-prod" onchange="updateVentaInfo()">'+opts+'</select></div><div class="fg" style="max-width:90px"><label>Unidades</label><input type="number" id="v-uni" placeholder="0" oninput="updateVentaInfo()"></div></div><div id="v-prev" style="font-size:11px;margin-bottom:10px;min-height:16px"></div><button class="btn btn-primary" onclick="addVenta()">+ Registrar venta</button></div><div class="card"><div class="ctitle">Ventas registradas</div><div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Producto</th><th>Proteína</th><th>Unidades</th><th>Kg LPU</th><th>Stock prev.</th><th>Stock act.</th><th>Usuario</th><th></th></tr></thead><tbody>'+(DB.ventas.length===0?'<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin ventas</td></tr>':DB.ventas.slice().reverse().map((v,i)=>{const idx=DB.ventas.length-1-i;const p=PRODUCTOS.find(pp=>pp.nombre===v.producto);return '<tr><td>'+v.fecha+'</td><td>'+v.producto+'</td><td>'+(p?p.proteina:'-')+'</td><td>'+v.unidades+'</td><td>'+(p?fmt(p.kgLPU*v.unidades,3):'-')+' kg</td><td>'+(v.sp??'-')+'</td><td>'+(v.sa??'-')+'</td><td style="color:#888">'+(v.usuario||'-')+'</td><td>'+(currentUser==='gerente'?'<button class="btn-sm" onclick="delVenta('+idx+')">x</button>':'')+'</td></tr>';}).join(''))+'</tbody></table></div></div>';updateVentaInfo();
+}
+function updateVentaInfo(){const pN=document.getElementById('v-prod')?document.getElementById('v-prod').value:'';const uni=parseInt(document.getElementById('v-uni')?document.getElementById('v-uni').value:0)||0;const p=PRODUCTOS.find(pp=>pp.nombre===pN);const prev=document.getElementById('v-prev');if(!prev||!p)return;const sa=getPT(p.ptKey);const post=sa-uni;const cls=post<0?'color:#a32d2d':post<=5?'color:#854f0b':'color:#0f6e56';prev.innerHTML='Proteína: <strong>'+p.proteina+'</strong> | Stock actual: <strong>'+sa+'</strong> → después: <strong style="'+cls+'">'+post+'</strong>'+(post<0?' <span style="color:#a32d2d">— INSUFICIENTE</span>':'');}
+function addVenta(){const fecha=document.getElementById('v-fecha').value;const pN=document.getElementById('v-prod').value;const uni=parseInt(document.getElementById('v-uni').value);if(!fecha||isNaN(uni)||uni<=0){alert('Completá todos los campos.');return;}const p=PRODUCTOS.find(pp=>pp.nombre===pN);const sp=p?getPT(p.ptKey):null;if(p&&getPT(p.ptKey)<uni){if(!confirm('Stock insuficiente: '+getPT(p.ptKey)+' unidades. ¿Continuás?'))return;}if(p)setPT(p.ptKey,getPT(p.ptKey)-uni);const sa=p?getPT(p.ptKey):null;DB.ventas.push({fecha,producto:pN,unidades:uni,usuario:currentUser,sp,sa,id:Date.now()});save(DB);document.getElementById('v-uni').value='';renderVentas();checkAlertas();}
+function delVenta(i){if(currentUser!=='gerente')return;const v=DB.ventas[i];const p=PRODUCTOS.find(pp=>pp.nombre===v.producto);if(p)setPT(p.ptKey,getPT(p.ptKey)+v.unidades);DB.ventas.splice(i,1);save(DB);renderVentas();checkAlertas();}
+
+function renderBalance(){
+  const el=document.getElementById('balance');let html='<p class="sechead">Balance de masa por proteína</p>';
+  PROTEINAS_LIST.forEach(prot=>{
+    const kgBruto=DB.ingresos.filter(r=>r.proteina===prot).reduce((a,r)=>a+r.kg_bruto,0);
+    const limpieza=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='limpieza');const coccion=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='coccion');const armado=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='armado');
+    const kgDesp=limpieza.reduce((a,r)=>a+r.kg_desperdicio,0);const kgMerma=coccion.reduce((a,r)=>a+(r.kg_in-r.kg_out),0);const kgRecA=armado.reduce((a,r)=>a+r.kg_desperdicio,0);
+    const subsTotal=SUB_STOCKS[prot].reduce((a,s)=>a+getSS(s.key),0);
+    const kgVendido=DB.ventas.reduce((a,v)=>{const p=PRODUCTOS.find(pp=>pp.nombre===v.producto);return p&&p.proteina===prot?a+(p.kgLPU*v.unidades):a;},0);
+    const crudo=DB.crudoSinProcesar[prot]||0;
+    const totalExpl=kgDesp+kgMerma+kgRecA+subsTotal+kgVendido+crudo;const diff=kgBruto-totalExpl;const balanced=kgBruto===0||Math.abs(diff)<0.5;
+    html+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="ctitle" style="margin-bottom:0">'+prot+'</div><span class="badge '+(balanced?'bok':Math.abs(diff)<2?'bwarn':'bdanger')+'">'+(balanced?'Balanceado':'Desvío '+fmt(diff,2)+' kg')+'</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;font-size:12px"><div style="padding:8px;background:#f0efe8;border-radius:8px"><div style="font-size:10px;color:#888;margin-bottom:2px">Ingreso bruto</div><strong>'+fmt(kgBruto,2)+' kg</strong></div><div style="padding:8px;background:#fcebeb;border-radius:8px"><div style="font-size:10px;color:#791f1f;margin-bottom:2px">Desperdicio</div><strong style="color:#791f1f">'+fmt(kgDesp,2)+' kg</strong></div><div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">'+fmt(kgMerma,2)+' kg</strong></div>'+(kgRecA>0?'<div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Recorte armado</div><strong style="color:#633806">'+fmt(kgRecA,2)+' kg</strong></div>':'')+'<div style="padding:8px;background:#eeedfe;border-radius:8px"><div style="font-size:10px;color:#3c3489;margin-bottom:2px">En sub-stocks</div><strong style="color:#3c3489">'+fmt(subsTotal,2)+' kg</strong></div><div style="padding:8px;background:#e1f5ee;border-radius:8px"><div style="font-size:10px;color:#085041;margin-bottom:2px">Vendido (kg MP)</div><strong style="color:#085041">'+fmt(kgVendido,3)+' kg</strong></div>'+(crudo>0?'<div style="padding:8px;background:#e6f1fb;border-radius:8px"><div style="font-size:10px;color:#0c447c;margin-bottom:2px">Crudo sin procesar</div><strong style="color:#0c447c">'+fmt(crudo,2)+' kg</strong></div>':'')+'</div>'+((!balanced&&kgBruto>0)?'<div style="margin-top:8px;font-size:11px;color:'+(Math.abs(diff)<2?'#633806':'#791f1f')+'">Diferencia sin explicar: '+fmt(diff,2)+' kg — revisá los registros.</div>':'')+'</div>';
+  });el.innerHTML=html;
+}
+
+function renderCalidad(){
+  const el=document.getElementById('calidad');
+  el.innerHTML='<p class="sechead">Registro de calidad diario</p><div class="card"><div class="frow"><div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="q-fecha" value="'+today()+'"></div><div class="fg" style="max-width:110px"><label>Caídas venc.</label><input type="number" id="q-caidas" placeholder="0"></div><div class="fg" style="max-width:110px"><label>Pedidos env.</label><input type="number" id="q-pedidos" placeholder="0"></div><div class="fg" style="max-width:110px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div><div class="fg"><label>Notas</label><input type="text" id="q-notas" placeholder="Opcional"></div></div><button class="btn btn-primary" onclick="addCalidad()">+ Agregar</button></div><div class="card"><div class="ctitle">Historial de calidad</div><table><thead><tr><th>Fecha</th><th>Caídas</th><th>Pedidos</th><th>Err.</th><th>% error</th><th>Notas</th><th></th></tr></thead><tbody>'+(DB.calidad.length===0?'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':DB.calidad.slice().reverse().map((r,i)=>{const idx=DB.calidad.length-1-i;const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';return '<tr><td>'+r.fecha+'</td><td>'+r.caidas+'</td><td>'+r.pedidos+'</td><td>'+r.errores+'</td><td><span class="badge '+dc+'">'+pc+'%</span></td><td style="color:#888;font-size:11px">'+(r.notas||'-')+'</td><td>'+(currentUser==='gerente'?'<button class="btn-sm" onclick="delCalidad('+idx+')">x</button>':'')+'</td></tr>';}).join(''))+'</tbody></table></div>';
+}
+function addCalidad(){const fecha=document.getElementById('q-fecha').value;if(!fecha){alert('Ingresá la fecha.');return;}DB.calidad.push({fecha,caidas:parseInt(document.getElementById('q-caidas').value)||0,pedidos:parseInt(document.getElementById('q-pedidos').value)||0,errores:parseInt(document.getElementById('q-errores').value)||0,notas:document.getElementById('q-notas').value,usuario:currentUser,id:Date.now()});save(DB);['q-caidas','q-pedidos','q-errores','q-notas'].forEach(id=>document.getElementById(id).value='');renderCalidad();}
+function delCalidad(i){if(currentUser!=='gerente')return;DB.calidad.splice(i,1);save(DB);renderCalidad();}
+
+function renderAdmin(){
+  if(currentUser!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
+  document.getElementById('admin').innerHTML='<p class="sechead">Panel de administración</p><div class="card"><div class="ctitle">Cambiar contraseñas</div><div class="frow"><div class="fg"><label>Nueva contraseña — Gerente</label><input type="password" id="pw-g" placeholder="••••••"></div><div class="fg"><label>Nueva contraseña — Jefe de cocina</label><input type="password" id="pw-c" placeholder="••••••"></div><button class="btn" style="align-self:flex-end" onclick="cambiarPW()">Guardar</button></div></div><div class="card"><div class="ctitle">Respaldo de datos</div><div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" onclick="exportarJSON()">Exportar JSON completo</button><button class="btn" onclick="exportarExcel()">Exportar Excel</button></div><div style="margin-top:10px;font-size:11px;color:#888">'+DB.ingresos.length+' ingresos · '+DB.procesos.length+' procesos · '+DB.ventas.length+' ventas · '+DB.calidad.length+' calidad</div></div><div class="card"><div class="ctitle" style="color:#a32d2d">Zona de riesgo</div><button class="btn" style="background:#fcebeb;color:#791f1f;border-color:#f09595" onclick="resetDB()">Resetear base de datos</button><div style="font-size:11px;color:#888;margin-top:8px">Elimina todos los registros históricos. No se puede deshacer.</div></div>';
+}
+function cambiarPW(){const pg=document.getElementById('pw-g').value;const pc=document.getElementById('pw-c').value;if(pg)DB.passwords.gerente=pg;if(pc)DB.passwords.cocina=pc;save(DB);alert('Contraseñas actualizadas.');document.getElementById('pw-g').value='';document.getElementById('pw-c').value='';}
+function resetDB(){if(!confirm('¿Seguro? No se puede deshacer.'))return;const pw=DB.passwords;DB={ingresos:[],procesos:[],ventas:[],calidad:[],subStocks:initSubStocks(),pt:initPT(),crudoSinProcesar:{},passwords:pw};save(DB);alert('Base reseteada.');renderTab('resumen');}
+function exportarJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='planta_backup_'+today()+'.json';a.click();}
+function exportarExcel(){
+  const lines=['TABLERO DE PRODUCCIÓN — '+today(),'','=== INGRESOS ===','Fecha\tProteína\tKg bruto\t$/kg\tCosto total\tProveedor\tUsuario'];
+  DB.ingresos.forEach(r=>lines.push(r.fecha+'\t'+r.proteina+'\t'+fmt(r.kg_bruto,2)+'\t'+fmt(r.costo_kg,2)+'\t'+fmt(r.kg_bruto*r.costo_kg,2)+'\t'+(r.proveedor||'')+'\t'+(r.usuario||'')));
+  lines.push('','=== PROCESOS ===','Fecha\tProteína\tTipo\tOrigen\tDestino\tKg entrada\tKg salida\tDesp./merma\tUnidades\tUsuario');
+  DB.procesos.forEach(p=>lines.push(p.fecha+'\t'+p.proteina+'\t'+p.tipo+'\t'+(p.origen||'')+'\t'+(p.destino||'')+'\t'+fmt(p.kg_in,2)+'\t'+fmt(p.kg_out,2)+'\t'+fmt(p.kg_in-p.kg_out,2)+'\t'+(p.unidades||'')+'\t'+(p.usuario||'')));
+  lines.push('','=== VENTAS ===','Fecha\tProducto\tProteína\tUnidades\tKg LPU\tStock prev.\tStock act.\tUsuario');
+  DB.ventas.forEach(v=>{const p=PRODUCTOS.find(pp=>pp.nombre===v.producto);lines.push(v.fecha+'\t'+v.producto+'\t'+(p?p.proteina:'')+'\t'+v.unidades+'\t'+(p?fmt(p.kgLPU*v.unidades,3):'')+'\t'+(v.sp??'')+'\t'+(v.sa??'')+'\t'+(v.usuario||''));});
+  lines.push('','=== CALIDAD ===','Fecha\tCaídas\tPedidos\tErrores\t% error\tNotas\tUsuario');
+  DB.calidad.forEach(r=>lines.push(r.fecha+'\t'+r.caidas+'\t'+r.pedidos+'\t'+r.errores+'\t'+(r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):0)+'%\t'+(r.notas||'')+'\t'+(r.usuario||'')));
+  const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='planta_produccion_'+today()+'.xls';a.click();
+}
+</script>
+</body>
+</html>
