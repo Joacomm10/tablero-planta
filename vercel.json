@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/tablero_planta_produccion.html" }
+  ]
+}
