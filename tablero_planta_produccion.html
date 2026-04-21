@@ -803,9 +803,9 @@ function renderProcesoForm(){
         ${respField}
       </div>
       <div class="frow">
-        <div class="fg" style="max-width:110px"><label>Kg a usar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px" id="pf-salida-wrap"><label id="pf-salida-label">Unidades obtenidas</label><input type="number" id="pf-unidades" placeholder="0" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px"><label>Sobrante de recortes (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
+        <div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
       </div>
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button>
