@@ -462,7 +462,11 @@ function renderResumen(){
   const totalCaidas=cal.reduce((a,r)=>a+r.caidas,0);
   const totalPedidos=cal.reduce((a,r)=>a+r.pedidos,0);
   const totalErrPick=cal.reduce((a,r)=>a+r.errores,0);
+  const totalDev=cal.reduce((a,r)=>a+(r.devoluciones||0),0);
+  const totalVendidasPer=vents.reduce((a,v)=>a+v.unidades,0);
   const pctError=totalPedidos>0?(totalErrPick/totalPedidos*100):0;
+  const pctCaidas=totalVendidasPer>0?(totalCaidas/totalVendidasPer*100):0;
+  const pctDev=totalVendidasPer>0?(totalDev/totalVendidasPer*100):0;
 
   // Stats por empleado
   const empStats={};
@@ -534,8 +538,12 @@ function renderResumen(){
     <div class="kcard ${pctError<=2?'ok':pctError<=5?'warn':'danger'}">
       <div class="klabel">% error picking</div><div class="kval">${pctError.toFixed(1)}%</div><div class="ksub">${totalErrPick} err / ${totalPedidos} ped</div>
     </div>
-    <div class="kcard danger"><div class="klabel">Caídas por venc.</div><div class="kval">${totalCaidas}</div><div class="ksub">período</div></div>
-    <div class="kcard"><div class="klabel">Pedidos enviados</div><div class="kval">${totalPedidos}</div><div class="ksub">período</div></div>
+    <div class="kcard ${pctCaidas<=1?'ok':pctCaidas<=3?'warn':'danger'}">
+      <div class="klabel">% caídas por venc.</div><div class="kval">${pctCaidas.toFixed(1)}%</div><div class="ksub">${totalCaidas} / ${totalVendidasPer} vendidas</div>
+    </div>
+    <div class="kcard ${pctDev<=1?'ok':pctDev<=3?'warn':'danger'}">
+      <div class="klabel">% devoluciones</div><div class="kval">${pctDev.toFixed(1)}%</div><div class="ksub">${totalDev} / ${totalVendidasPer} vendidas</div>
+    </div>
   </div>
 
   <div class="card">
@@ -573,45 +581,74 @@ function renderResumen(){
 
 function renderCalidad(){
   const el=document.getElementById('calidad');
+  const totalVendidas=DB.ventas.reduce((a,v)=>a+v.unidades,0);
+  const totalCaidas=DB.calidad.reduce((a,r)=>a+r.caidas,0);
+  const totalPedidos=DB.calidad.reduce((a,r)=>a+r.pedidos,0);
+  const totalErrPick=DB.calidad.reduce((a,r)=>a+r.errores,0);
+  const totalDev=DB.calidad.reduce((a,r)=>a+(r.devoluciones||0),0);
+  const pctPick=totalPedidos>0?(totalErrPick/totalPedidos*100):0;
+  const pctCaidas=totalVendidas>0?(totalCaidas/totalVendidas*100):0;
+  const pctDev=totalVendidas>0?(totalDev/totalVendidas*100):0;
+
   el.innerHTML=`
-  <p class="sechead">Registro de calidad diario</p>
+  <p class="sechead">Calidad</p>
+  <div class="kgrid" style="margin-bottom:1.25rem">
+    <div class="kcard ${pctPick<=2?'ok':pctPick<=5?'warn':'danger'}">
+      <div class="klabel">% error picking</div><div class="kval">${pctPick.toFixed(1)}%</div>
+      <div class="ksub">${totalErrPick} err / ${totalPedidos} pedidos</div>
+    </div>
+    <div class="kcard ${pctCaidas<=1?'ok':pctCaidas<=3?'warn':'danger'}">
+      <div class="klabel">% caídas por venc.</div><div class="kval">${pctCaidas.toFixed(1)}%</div>
+      <div class="ksub">${totalCaidas} caídas / ${totalVendidas} vendidas</div>
+    </div>
+    <div class="kcard ${pctDev<=1?'ok':pctDev<=3?'warn':'danger'}">
+      <div class="klabel">% devoluciones mal estado</div><div class="kval">${pctDev.toFixed(1)}%</div>
+      <div class="ksub">${totalDev} dev. / ${totalVendidas} vendidas</div>
+    </div>
+  </div>
   <div class="card">
+    <div class="ctitle">Registrar</div>
     <div class="frow">
       <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="q-fecha" value="${today()}"></div>
-      <div class="fg" style="max-width:110px"><label>Caídas venc.</label><input type="number" id="q-caidas" placeholder="0"></div>
-      <div class="fg" style="max-width:110px"><label>Pedidos env.</label><input type="number" id="q-pedidos" placeholder="0"></div>
-      <div class="fg" style="max-width:110px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div>
+      <div class="fg" style="max-width:100px"><label>Caídas venc.</label><input type="number" id="q-caidas" placeholder="0"></div>
+      <div class="fg" style="max-width:100px"><label>Pedidos env.</label><input type="number" id="q-pedidos" placeholder="0"></div>
+      <div class="fg" style="max-width:100px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div>
+      <div class="fg" style="max-width:100px"><label>Devoluciones</label><input type="number" id="q-devoluciones" placeholder="0"></div>
       <div class="fg"><label>Notas</label><input type="text" id="q-notas" placeholder="Opcional"></div>
     </div>
     <button class="btn btn-primary" onclick="addCalidad()">+ Registrar</button>
   </div>
   <div class="card">
     <div class="ctitle">Historial de calidad</div>
-    ${DB.calidad.length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<table>
-      <thead><tr><th>Fecha</th><th>Caídas</th><th>Pedidos</th><th>Errores</th><th>% error</th><th>Notas</th><th></th></tr></thead>
+    ${DB.calidad.length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
+      <thead><tr><th>Fecha</th><th>Caídas</th><th>Pedidos</th><th>Err. pick.</th><th>% pick.</th><th>Devoluciones</th><th>Notas</th><th></th></tr></thead>
       <tbody>${DB.calidad.slice().reverse().map((r,i)=>{
         const idx=DB.calidad.length-1-i;
         const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';
         const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';
         return `<tr><td>${r.fecha}</td><td>${r.caidas}</td><td>${r.pedidos}</td><td>${r.errores}</td>
           <td><span class="badge ${dc}">${pc}%</span></td>
+          <td>${r.devoluciones||0}</td>
           <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
           <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCalidad(${idx})">x</button>`:''}</td></tr>`;
       }).join('')}</tbody>
-    </table>`}
+    </table></div>`}
   </div>`;
 }
 
 function addCalidad(){
   const fecha=document.getElementById('q-fecha').value;
   if(!fecha){alert('Ingresá la fecha.');return;}
-  DB.calidad.push({fecha,caidas:parseInt(document.getElementById('q-caidas').value)||0,
+  DB.calidad.push({fecha,
+    caidas:parseInt(document.getElementById('q-caidas').value)||0,
     pedidos:parseInt(document.getElementById('q-pedidos').value)||0,
     errores:parseInt(document.getElementById('q-errores').value)||0,
-    notas:document.getElementById('q-notas').value,usuario:CU.nombre,id:Date.now()});
+    devoluciones:parseInt(document.getElementById('q-devoluciones').value)||0,
+    notas:document.getElementById('q-notas').value,
+    usuario:CU.nombre,id:Date.now()});
   saveDB();
-  ['q-caidas','q-pedidos','q-errores','q-notas'].forEach(id=>document.getElementById(id).value='');
-  renderResumen();
+  ['q-caidas','q-pedidos','q-errores','q-devoluciones','q-notas'].forEach(id=>document.getElementById(id).value='');
+  renderCalidad();
 }
 function delCalidad(i){if(CU.role!=='gerente')return;DB.calidad.splice(i,1);saveDB();renderResumen();}
 
