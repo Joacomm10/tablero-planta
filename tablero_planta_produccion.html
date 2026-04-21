@@ -380,8 +380,12 @@ async function manualRefresh(){
 function startAutoRefresh(){
   if(_refreshInterval)clearInterval(_refreshInterval);
   _refreshInterval=setInterval(async()=>{
-    // Solo refresca si no estamos en medio de un guardado
+    // Solo refresca si no estamos guardando y estamos en una tab de solo lectura
     if(_saving)return;
+    const activeTab=document.querySelector('.tab.active');
+    const tab=activeTab?.dataset.tab;
+    const readOnlyTabs=['resumen','stock','balance'];
+    if(!tab||!readOnlyTabs.includes(tab))return;
     try{
       const data=await loadDBFromSupabase();
       if(data){
