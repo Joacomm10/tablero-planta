@@ -66,60 +66,7 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 </style>
 </head>
 <body>
-<div class="app" id="app">
-
-<div id="login-screen">
-  <div class="login-wrap">
-    <div class="card">
-      <div style="text-align:center;margin-bottom:1.5rem">
-        <div style="width:52px;height:52px;border-radius:50%;background:#e6f1fb;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;color:#0c447c;font-weight:600">P</div>
-        <div style="font-size:17px;font-weight:500">Planta de producción</div>
-        <div style="font-size:12px;color:#888;margin-top:4px">Ingresá con tu usuario</div>
-      </div>
-      <div class="fg" style="margin-bottom:10px"><label>Usuario</label>
-        <select id="login-user"><option value="">Seleccionar...</option></select>
-      </div>
-      <div class="fg" style="margin-bottom:16px"><label>Contraseña</label>
-        <input type="password" id="login-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="btn btn-primary" style="width:100%;padding:10px" onclick="doLogin()">Ingresar</button>
-      <div id="login-error" style="color:#a32d2d;font-size:11px;text-align:center;margin-top:8px;min-height:16px"></div>
-    </div>
-  </div>
-</div>
-
-<div id="main-screen" style="display:none">
-<div class="topbar">
-  <div class="tabs" id="main-tabs">
-    <button class="tab active" data-tab="resumen" onclick="showTab('resumen',this)">Resumen</button>
-    <button class="tab" data-tab="ingreso" onclick="showTab('ingreso',this)">Ingreso MP</button>
-    <button class="tab" data-tab="proceso" onclick="showTab('proceso',this)">Proceso</button>
-    <button class="tab" data-tab="stock" onclick="showTab('stock',this)">Stock</button>
-    <button class="tab" data-tab="ventas" onclick="showTab('ventas',this)">Ventas</button>
-    <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
-    <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
-    <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
-    <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
-  </div>
-  <div class="user-bar">
-    <div class="user-avatar" id="user-avatar">G</div>
-    <span id="user-label">Gerente</span>
-    <button class="btn-sm" onclick="doLogout()">Salir</button>
-    <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="exportarExcel()">Exportar</button>
-  </div>
-</div>
-<div id="alerts-container"></div>
-<div id="resumen" class="sec active"></div>
-<div id="ingreso" class="sec"></div>
-<div id="proceso" class="sec"></div>
-<div id="stock" class="sec"></div>
-<div id="ventas" class="sec"></div>
-<div id="balance" class="sec"></div>
-<div id="config" class="sec"></div>
-<div id="calidad" class="sec"></div>
-<div id="admin" class="sec"></div>
-</div>
-</div>
+<div class="app" id="app"></div>
 
 <script>
 // ============================================================
@@ -275,11 +222,14 @@ const DEFAULT_USERS = [
 const DEFAULT_EMPLEADOS = [];
 
 // ============================================================
-// DB
 // ============================================================
-const KEY='planta_v5';
-function loadDB(){
-  try{const d=localStorage.getItem(KEY);if(d)return JSON.parse(d);}catch(e){}
+// SUPABASE CONFIG
+// ============================================================
+const SB_URL = 'https://ztyczywyksykshvmeaec.supabase.co';
+const SB_KEY = 'sb_publishable_9odkUqgVvN2X4ydZORuUyQ_WKgYqUb3';
+const SB_RECORD_ID = 'planta_v5';
+
+function defaultDB(){
   return {
     ingresos:[],procesos:[],ventas:[],calidad:[],
     ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
@@ -291,9 +241,38 @@ function loadDB(){
     productos:JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS)),
   };
 }
-function saveDB(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}}
 
-let DB=loadDB();
+async function loadDBFromSupabase(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/datos?id=eq.${SB_RECORD_ID}&select=valor`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const data=await r.json();
+    if(data&&data.length>0&&data[0].valor){
+      return data[0].valor;
+    }
+  }catch(e){console.error('Error cargando desde Supabase:',e);}
+  return null;
+}
+
+async function saveDB(){
+  try{
+    // Upsert — inserta si no existe, actualiza si ya existe
+    await fetch(`${SB_URL}/rest/v1/datos`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
+    });
+  }catch(e){console.error('Error guardando en Supabase:',e);}
+}
+
+// DB en memoria — se carga al iniciar
+let DB = defaultDB();
 let CU=null;
 let activeProt='Tapa de asado';
 let activeModo='limpieza';
@@ -778,9 +757,11 @@ function renderProcesoForm(){
     frm.innerHTML=`<div class="card">
       <div class="info-box">MP disponible: <strong>${fmt(mpVal,2)} kg</strong> &nbsp;|&nbsp; Desp. teórico: <strong>${teo?.desp_limpieza_pct||0}%</strong></div>
       <div class="frow">
-        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
-        <div class="fg" style="max-width:130px"><label>Kg entrada (bruto)</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div>
-        <div class="fg" style="max-width:130px"><label>Kg desperdicio</label><input type="number" id="pf-desp" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div>
+        <div class="fg" style="max-width:140px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
+        <div class="fg" style="max-width:140px"><label>Kg entrada (bruto)</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div>
+        <div class="fg" style="max-width:140px"><label>Kg desperdicio</label><input type="number" id="pf-desp" placeholder="0.00" step="0.01" oninput="calcLimpieza()"></div>
+      </div>
+      <div class="frow">
         ${respField}
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Distribuí lo limpio entre los sub-stocks (entrada − desperdicio):</div>
@@ -1400,22 +1381,96 @@ function exportarExcel(){
 // ============================================================
 // INIT
 // ============================================================
-// Migración: asegurar que todos los keys de substocks existan en DB.ss
-Object.values(DEFAULT_SUBSTOCKS).flat().forEach(s=>{
-  if(DB.ss[s.key]===undefined)DB.ss[s.key]=0;
+function migrateDB(){
+  Object.values(DEFAULT_SUBSTOCKS).flat().forEach(s=>{
+    if(DB.ss[s.key]===undefined)DB.ss[s.key]=0;
+  });
+  if(!DB.substocks)DB.substocks=JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS));
+  if(!DB.teorico)DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
+  if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
+  if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
+  if(!DB.empleados)DB.empleados=[];
+  DB.productos.forEach(p=>{
+    if(!p.chain)p.chain=['limpieza','coccion'];
+    if(!p.kgPorcion&&p.kgLPU)p.kgPorcion=p.kgLPU;
+  });
+}
+
+// Mostrar pantalla de carga mientras conecta a Supabase
+document.getElementById('app').innerHTML=`
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px">
+    <div style="width:52px;height:52px;border-radius:50%;background:#e6f1fb;display:flex;align-items:center;justify-content:center;font-size:20px;color:#0c447c;font-weight:600">P</div>
+    <div style="font-size:16px;font-weight:500;color:#1a1a1a">Conectando a la base de datos...</div>
+    <div style="font-size:12px;color:#888">Planta de producción</div>
+  </div>`;
+
+loadDBFromSupabase().then(data=>{
+  if(data){
+    DB=data;
+  }
+  migrateDB();
+  // Restaurar la app
+  document.getElementById('app').innerHTML=`
+    <div id="login-screen">
+      <div class="login-wrap">
+        <div class="card">
+          <div style="text-align:center;margin-bottom:1.5rem">
+            <div style="width:52px;height:52px;border-radius:50%;background:#e6f1fb;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px;color:#0c447c;font-weight:600">P</div>
+            <div style="font-size:17px;font-weight:500">Planta de producción</div>
+            <div style="font-size:12px;color:#888;margin-top:4px">Ingresá con tu usuario</div>
+          </div>
+          <div class="fg" style="margin-bottom:10px"><label>Usuario</label>
+            <select id="login-user"><option value="">Seleccionar...</option></select>
+          </div>
+          <div class="fg" style="margin-bottom:16px"><label>Contraseña</label>
+            <input type="password" id="login-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
+          </div>
+          <button class="btn btn-primary" style="width:100%;padding:10px" onclick="doLogin()">Ingresar</button>
+          <div id="login-error" style="color:#a32d2d;font-size:11px;text-align:center;margin-top:8px;min-height:16px"></div>
+        </div>
+      </div>
+    </div>
+    <div id="main-screen" style="display:none">
+      <div class="topbar">
+        <div class="tabs" id="main-tabs">
+          <button class="tab active" data-tab="resumen" onclick="showTab('resumen',this)">Resumen</button>
+          <button class="tab" data-tab="ingreso" onclick="showTab('ingreso',this)">Ingreso MP</button>
+          <button class="tab" data-tab="proceso" onclick="showTab('proceso',this)">Proceso</button>
+          <button class="tab" data-tab="stock" onclick="showTab('stock',this)">Stock</button>
+          <button class="tab" data-tab="ventas" onclick="showTab('ventas',this)">Ventas</button>
+          <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
+          <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
+          <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
+          <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
+        </div>
+        <div class="user-bar">
+          <div class="user-avatar" id="user-avatar">G</div>
+          <span id="user-label">Gerente</span>
+          <button class="btn-sm" onclick="doLogout()">Salir</button>
+          <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="exportarExcel()">Exportar</button>
+        </div>
+      </div>
+      <div id="alerts-container"></div>
+      <div id="resumen" class="sec active"></div>
+      <div id="ingreso" class="sec"></div>
+      <div id="proceso" class="sec"></div>
+      <div id="stock" class="sec"></div>
+      <div id="ventas" class="sec"></div>
+      <div id="balance" class="sec"></div>
+      <div id="config" class="sec"></div>
+      <div id="calidad" class="sec"></div>
+      <div id="admin" class="sec"></div>
+    </div>`;
+  initLoginSelect();
+}).catch(e=>{
+  console.error(e);
+  document.getElementById('app').innerHTML=`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:12px">
+      <div style="font-size:16px;color:#a32d2d;font-weight:500">Error conectando a la base de datos</div>
+      <div style="font-size:12px;color:#888">Verificá tu conexión a internet</div>
+      <button class="btn btn-primary" onclick="location.reload()">Reintentar</button>
+    </div>`;
 });
-if(!DB.substocks)DB.substocks=JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS));
-if(!DB.teorico)DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
-if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
-if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
-if(!DB.empleados)DB.empleados=[];
-// Migrar productos viejos que no tienen chain ni kgPorcion
-DB.productos.forEach(p=>{
-  if(!p.chain)p.chain=['limpieza','coccion'];
-  if(!p.kgPorcion&&p.kgLPU)p.kgPorcion=p.kgLPU;
-});
-saveDB();
-initLoginSelect();
 </script>
 </body>
 </html>
