@@ -972,7 +972,7 @@ function calcArmado(){
   const kgMPReal=ki/uni;
   const devMP=((kgMPReal-kgMPTeo)/kgMPTeo*100);
   prev.innerHTML=`Kg cocido teórico para ${uni} u.: <strong>${ku} kg</strong> | Recorte est.: <strong>${rec} kg</strong> | kg MP/u real: <strong>${fmt(kgMPReal,3)}</strong> vs teo: <strong>${fmt(kgMPTeo,3)}</strong> <span class="badge ${Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger'}">${devMP>=0?'+':''}${devMP.toFixed(1)}%</span>`;
-  if(!document.getElementById('pf-recorte').value)document.getElementById('pf-recorte').value=rec;
+  document.getElementById('pf-recorte').value=rec;
 }
 
 function addProcesoLimpieza(){
