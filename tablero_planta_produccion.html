@@ -98,6 +98,7 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
     <button class="tab" data-tab="ventas" onclick="showTab('ventas',this)">Ventas</button>
     <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
     <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
+    <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
     <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
   </div>
   <div class="user-bar">
@@ -115,6 +116,7 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 <div id="ventas" class="sec"></div>
 <div id="balance" class="sec"></div>
 <div id="config" class="sec"></div>
+<div id="calidad" class="sec"></div>
 <div id="admin" class="sec"></div>
 </div>
 </div>
@@ -266,9 +268,9 @@ const DEFAULT_PT = {
 
 const DEFAULT_USERS = [
   {id:'gerente',nombre:'Gerente de operaciones',pass:'1234',role:'gerente',
-   perms:{resumen:true,ingreso:true,proceso:true,stock:true,ventas:true,balance:true,config:true,admin:true}},
+   perms:{resumen:true,ingreso:true,proceso:true,stock:true,ventas:true,balance:true,config:true,calidad:true,admin:true}},
   {id:'cocina',nombre:'Jefe de cocina',pass:'5678',role:'cocina',
-   perms:{resumen:true,ingreso:true,proceso:true,stock:false,ventas:false,balance:false,config:false,admin:false}},
+   perms:{resumen:true,ingreso:true,proceso:true,stock:false,ventas:false,balance:false,config:false,calidad:true,admin:false}},
 ];
 const DEFAULT_EMPLEADOS = [];
 
@@ -408,7 +410,7 @@ function renderTab(t){
   checkAlertas();
   ({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,
     stock:renderStock,ventas:renderVentas,balance:renderBalance,
-    config:renderConfig,admin:renderAdmin}[t]||function(){})();
+    config:renderConfig,calidad:renderCalidad,admin:renderAdmin}[t]||function(){})();
 }
 
 // ============================================================
@@ -566,8 +568,14 @@ function renderResumen(){
     </div>`).join('')}
   </div>
 
+  </div>`;
+}
+
+function renderCalidad(){
+  const el=document.getElementById('calidad');
+  el.innerHTML=`
+  <p class="sechead">Registro de calidad diario</p>
   <div class="card">
-    <div class="ctitle">Registro diario de calidad</div>
     <div class="frow">
       <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="q-fecha" value="${today()}"></div>
       <div class="fg" style="max-width:110px"><label>Caídas venc.</label><input type="number" id="q-caidas" placeholder="0"></div>
@@ -575,18 +583,22 @@ function renderResumen(){
       <div class="fg" style="max-width:110px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div>
       <div class="fg"><label>Notas</label><input type="text" id="q-notas" placeholder="Opcional"></div>
     </div>
-    <button class="btn btn-primary" onclick="addCalidad()">+ Registrar calidad</button>
-    ${DB.calidad.length>0?`<table style="margin-top:12px">
+    <button class="btn btn-primary" onclick="addCalidad()">+ Registrar</button>
+  </div>
+  <div class="card">
+    <div class="ctitle">Historial de calidad</div>
+    ${DB.calidad.length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<table>
       <thead><tr><th>Fecha</th><th>Caídas</th><th>Pedidos</th><th>Errores</th><th>% error</th><th>Notas</th><th></th></tr></thead>
       <tbody>${DB.calidad.slice().reverse().map((r,i)=>{
         const idx=DB.calidad.length-1-i;
         const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';
         const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';
         return `<tr><td>${r.fecha}</td><td>${r.caidas}</td><td>${r.pedidos}</td><td>${r.errores}</td>
-          <td><span class="badge ${dc}">${pc}%</span></td><td style="color:#888;font-size:11px">${r.notas||'-'}</td>
+          <td><span class="badge ${dc}">${pc}%</span></td>
+          <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
           <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCalidad(${idx})">x</button>`:''}</td></tr>`;
       }).join('')}</tbody>
-    </table>`:''}
+    </table>`}
   </div>`;
 }
 
@@ -780,7 +792,7 @@ function renderProcesoForm(){
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen</label>
-          <select id="pf-origen">${[...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
+          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
         </div>
         <div class="fg"><label>Producto a generar</label>
           <select id="pf-producto" onchange="calcArmado()">${prodsProt.map(p=>{
@@ -791,9 +803,9 @@ function renderProcesoForm(){
         ${respField}
       </div>
       <div class="frow">
-        <div class="fg" style="max-width:110px"><label>Kg/u a usar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px"><label>Unidades obtenidas</label><input type="number" id="pf-unidades" placeholder="0" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px"><label>Kg recorte armado</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
+        <div class="fg" style="max-width:110px"><label>Kg a usar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px" id="pf-salida-wrap"><label id="pf-salida-label">Unidades obtenidas</label><input type="number" id="pf-unidades" placeholder="0" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label>Sobrante de recortes (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
       </div>
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button>
@@ -817,6 +829,24 @@ function calcCoccion(){
   const prev=document.getElementById('pf-prev');if(!prev)return;
   const teo=DB.teorico[activeProt];
   prev.innerHTML=`Rendimiento: <strong>${ki>0?(ko/ki*100).toFixed(1):'-'}%</strong>${teo?.coccion_pct?` | Teórico: <strong>${teo.coccion_pct}%</strong>`:''} | Merma: <strong>${fmt(ki-ko,2)} kg</strong>`;
+}
+
+function updateArmadoSalidaLabel(){
+  // Check if destination product uses units or kg
+  const sel=document.getElementById('pf-producto');
+  if(!sel) return;
+  const prod=DB.productos.find(p=>p.ptKey===sel.value);
+  const ssDef=prod?findSSdef(prod.substock):null;
+  const label=document.getElementById('pf-salida-label');
+  const input=document.getElementById('pf-unidades');
+  if(!label||!input) return;
+  if(ssDef?.type==='u'){
+    label.textContent='Unidades obtenidas';
+    input.step='1';input.placeholder='0';
+  } else {
+    label.textContent='Kg obtenidos';
+    input.step='0.01';input.placeholder='0.00';
+  }
 }
 
 function calcArmado(){
@@ -1190,7 +1220,7 @@ function delProducto(i){
 // ============================================================
 function renderAdmin(){
   if(CU.role!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
@@ -1265,7 +1295,7 @@ function addUser(){
   const role=document.getElementById('nu-role').value;
   if(!nombre||!id||!pass){alert('Completá todos los campos.');return;}
   if(DB.users.find(u=>u.id===id)){alert('Ya existe un usuario con ese ID.');return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
   const perms={admin:false};
   TABS.forEach(t=>perms[t]=role==='gerente'?true:['resumen','ingreso','proceso'].includes(t));
   DB.users.push({id,nombre,pass,role,perms});
