@@ -270,6 +270,7 @@ const DEFAULT_USERS = [
   {id:'cocina',nombre:'Jefe de cocina',pass:'5678',role:'cocina',
    perms:{resumen:true,ingreso:true,proceso:true,stock:false,ventas:false,balance:false,config:false,admin:false}},
 ];
+const DEFAULT_EMPLEADOS = [];
 
 // ============================================================
 // DB
@@ -282,6 +283,7 @@ function loadDB(){
     ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
+    empleados:JSON.parse(JSON.stringify(DEFAULT_EMPLEADOS)),
     teorico:JSON.parse(JSON.stringify(DEFAULT_TEORICO)),
     substocks:JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS)),
     productos:JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS)),
@@ -460,6 +462,37 @@ function renderResumen(){
   const totalErrPick=cal.reduce((a,r)=>a+r.errores,0);
   const pctError=totalPedidos>0?(totalErrPick/totalPedidos*100):0;
 
+  // Stats por empleado
+  const empStats={};
+  DB.procesos.filter(ff).forEach(p=>{
+    const emp=p.responsable; if(!emp) return;
+    if(!empStats[emp]) empStats[emp]={limpieza:[],coccion:[]};
+    const teo=DB.teorico[p.proteina];
+    if(p.tipo==='limpieza'&&p.kg_in>0&&teo){
+      const rReal=(p.kg_in-p.kg_desperdicio)/p.kg_in*100;
+      empStats[emp].limpieza.push({proteina:p.proteina,rReal,rTeo:100-teo.desp_limpieza_pct,dev:rReal-(100-teo.desp_limpieza_pct)});
+    }
+    if(p.tipo==='coccion'&&p.kg_in>0&&teo?.coccion_pct){
+      const rReal=p.kg_out/p.kg_in*100;
+      empStats[emp].coccion.push({proteina:p.proteina,rReal,rTeo:teo.coccion_pct,dev:rReal-teo.coccion_pct});
+    }
+  });
+  const empStatsHTML=Object.keys(empStats).length===0
+    ?'<div style="color:#888;font-size:12px;padding:8px 0">Sin datos — asigná responsables en los procesos.</div>'
+    :Object.entries(empStats).map(([emp,data])=>{
+      const avgDevLimp=data.limpieza.length?data.limpieza.reduce((a,r)=>a+r.dev,0)/data.limpieza.length:null;
+      const avgDevCoc=data.coccion.length?data.coccion.reduce((a,r)=>a+r.dev,0)/data.coccion.length:null;
+      const dcL=avgDevLimp===null?'bgray':Math.abs(avgDevLimp)<3?'bok':Math.abs(avgDevLimp)<8?'bwarn':'bdanger';
+      const dcC=avgDevCoc===null?'bgray':Math.abs(avgDevCoc)<3?'bok':Math.abs(avgDevCoc)<8?'bwarn':'bdanger';
+      return `<tr>
+        <td><strong>${emp}</strong></td>
+        <td style="color:#888">${data.limpieza.length} proc.</td>
+        <td>${avgDevLimp!==null?`<span class="badge ${dcL}">${avgDevLimp>=0?'+':''}${avgDevLimp.toFixed(1)}%</span>`:'<span class="badge bgray">—</span>'}</td>
+        <td style="color:#888">${data.coccion.length} proc.</td>
+        <td>${avgDevCoc!==null?`<span class="badge ${dcC}">${avgDevCoc>=0?'+':''}${avgDevCoc.toFixed(1)}%</span>`:'<span class="badge bgray">—</span>'}</td>
+      </tr>`;
+    }).join('');
+
   // Desvío kgMP real vs teórico por proteína
   const protDesvios=Object.keys(DB.substocks).map(prot=>{
     const teo=DB.teorico[prot];
@@ -501,6 +534,14 @@ function renderResumen(){
     </div>
     <div class="kcard danger"><div class="klabel">Caídas por venc.</div><div class="kval">${totalCaidas}</div><div class="ksub">período</div></div>
     <div class="kcard"><div class="klabel">Pedidos enviados</div><div class="kval">${totalPedidos}</div><div class="ksub">período</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Rendimiento por empleado</div>
+    <table>
+      <thead><tr><th>Empleado</th><th>Limpiezas</th><th>Desvío limpieza</th><th>Cocciones</th><th>Desvío cocción</th></tr></thead>
+      <tbody>${empStatsHTML}</tbody>
+    </table>
   </div>
 
   <div class="card">
@@ -675,7 +716,10 @@ function renderProcesoForm(){
   const frm=document.getElementById('proceso-form');if(!frm)return;
   const teo=DB.teorico[activeProt];
   const subs=DB.substocks[activeProt]||[];
-  const respField=`<div class="fg"><label>Responsable</label><input type="text" id="pf-resp" placeholder="Nombre del operario"></div>`;
+  const empOpts = (DB.empleados||[]).length===0
+    ? '<option value="">Sin empleados cargados</option>'
+    : '<option value="">Seleccionar...</option>'+(DB.empleados||[]).map(e=>`<option value="${e}">${e}</option>`).join('');
+  const respField=`<div class="fg"><label>Responsable</label><select id="pf-resp">${empOpts}</select></div>`;
 
   if(activeModo==='limpieza'){
     const mpSS=subs.find(s=>s.estado==='mp');
@@ -1151,6 +1195,21 @@ function renderAdmin(){
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
   <div class="card">
+    <div class="ctitle">Empleados</div>
+    <div class="info-box">Los empleados que cargues acá aparecen como opciones en el campo "Responsable" de cada proceso.</div>
+    <div class="frow">
+      <div class="fg"><label>Nombre del empleado</label><input type="text" id="emp-nombre" placeholder="Ej: Juan Pérez"></div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="addEmpleado()">+ Agregar</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      ${(DB.empleados||[]).length===0?'<span style="color:#888;font-size:12px">Sin empleados cargados.</span>':
+        (DB.empleados||[]).map((e,i)=>`<div style="display:flex;align-items:center;gap:6px;background:#f0efe8;border-radius:99px;padding:4px 12px;font-size:12px">
+          ${e} <button class="btn-sm" onclick="delEmpleado(${i})" style="padding:0 4px;font-size:12px;border:none">×</button>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card">
     <div class="ctitle">Usuarios y permisos</div>
     <div style="overflow-x:auto"><table>
       <thead><tr><th>Nombre</th><th>Rol</th>${TABS.map(t=>`<th style="font-size:10px;text-align:center">${t}</th>`).join('')}<th></th></tr></thead>
@@ -1227,6 +1286,17 @@ function cambiarPass(){
   document.getElementById('pw-nueva').value='';
 }
 
+function addEmpleado(){
+  const nombre=document.getElementById('emp-nombre').value.trim();
+  if(!nombre){alert('Ingresá un nombre.');return;}
+  if(!DB.empleados)DB.empleados=[];
+  if(DB.empleados.includes(nombre)){alert('Ya existe ese empleado.');return;}
+  DB.empleados.push(nombre);saveDB();renderAdmin();
+}
+function delEmpleado(i){
+  DB.empleados.splice(i,1);saveDB();renderAdmin();
+}
+
 function resetDB(){
   if(!confirm('¿Seguro? No se puede deshacer.'))return;
   const{users,teorico,substocks,productos}=DB;
@@ -1271,6 +1341,7 @@ if(!DB.substocks)DB.substocks=JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS));
 if(!DB.teorico)DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
 if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
 if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
+if(!DB.empleados)DB.empleados=[];
 // Migrar productos viejos que no tienen chain ni kgPorcion
 DB.productos.forEach(p=>{
   if(!p.chain)p.chain=['limpieza','coccion'];
