@@ -63,6 +63,11 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 .pill-kg{background:#e6f1fb;color:#0c447c;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .pill-u{background:#eeedfe;color:#3c3489;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .month-filter{display:flex;align-items:center;gap:8px;margin-bottom:1rem;font-size:12px}
+#sync-indicator{font-size:11px;padding:3px 10px;border-radius:99px;transition:opacity .4s}
+#sync-indicator.saving{background:#faeeda;color:#633806}
+#sync-indicator.saved{background:#e1f5ee;color:#085041}
+#sync-indicator.error{background:#fcebeb;color:#791f1f}
+#sync-indicator.hidden{opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -255,9 +260,13 @@ async function loadDBFromSupabase(){
   return null;
 }
 
+let _saving=false;
 async function saveDB(){
+  if(_saving)return;
+  _saving=true;
+  const ind=document.getElementById('sync-indicator');
+  if(ind){ind.textContent='Guardando...';ind.className='saving';}
   try{
-    // Upsert — inserta si no existe, actualiza si ya existe
     await fetch(`${SB_URL}/rest/v1/datos`,{
       method:'POST',
       headers:{
@@ -268,7 +277,13 @@ async function saveDB(){
       },
       body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
     });
-  }catch(e){console.error('Error guardando en Supabase:',e);}
+    if(ind){ind.textContent='✓ Guardado';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2500);}
+  }catch(e){
+    console.error('Error guardando en Supabase:',e);
+    if(ind){ind.textContent='Error al guardar';ind.className='error';}
+  }finally{
+    _saving=false;
+  }
 }
 
 // DB en memoria — se carga al iniciar
@@ -333,6 +348,57 @@ function calcKgMPReal(proteina){
   return{rendLimp,rendCoc,kgIn,kgDesp,kgCocIn,kgCocOut};
 }
 
+// ============================================================
+// AUTO-REFRESH (sincronización entre dispositivos)
+// ============================================================
+let _refreshInterval=null;
+const REFRESH_INTERVAL_MS=60000; // 60 segundos
+
+async function manualRefresh(){
+  const btn=document.getElementById('btn-refresh');
+  const ind=document.getElementById('sync-indicator');
+  if(btn)btn.textContent='↻ Actualizando...';
+  if(ind){ind.textContent='Actualizando...';ind.className='saving';}
+  try{
+    const data=await loadDBFromSupabase();
+    if(data){
+      DB=data;
+      migrateDB();
+      // Re-render la tab activa
+      const activeTab=document.querySelector('.tab.active');
+      if(activeTab)renderTab(activeTab.dataset.tab);
+      checkAlertas();
+      if(ind){ind.textContent='✓ Actualizado';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2500);}
+    }
+  }catch(e){
+    if(ind){ind.textContent='Error al actualizar';ind.className='error';}
+  }finally{
+    if(btn)btn.textContent='↻ Actualizar';
+  }
+}
+
+function startAutoRefresh(){
+  if(_refreshInterval)clearInterval(_refreshInterval);
+  _refreshInterval=setInterval(async()=>{
+    // Solo refresca si no estamos en medio de un guardado
+    if(_saving)return;
+    try{
+      const data=await loadDBFromSupabase();
+      if(data){
+        DB=data;
+        migrateDB();
+        const activeTab=document.querySelector('.tab.active');
+        if(activeTab)renderTab(activeTab.dataset.tab);
+        checkAlertas();
+      }
+    }catch(e){console.error('Auto-refresh error:',e);}
+  },REFRESH_INTERVAL_MS);
+}
+
+function stopAutoRefresh(){
+  if(_refreshInterval){clearInterval(_refreshInterval);_refreshInterval=null;}
+}
+
 function checkPerm(tab){
   if(!CU)return false;
   return CU.perms[tab]!==false;
@@ -365,10 +431,12 @@ function doLogin(){
   const firstTab=document.querySelector('#main-tabs .tab:not([style*="none"])');
   if(firstTab)firstTab.click();
   checkAlertas();
+  startAutoRefresh();
 }
 
 function doLogout(){
   CU=null;
+  stopAutoRefresh();
   document.getElementById('main-screen').style.display='none';
   document.getElementById('login-screen').style.display='block';
   document.getElementById('login-pass').value='';
@@ -802,23 +870,31 @@ function renderProcesoForm(){
     </div>`;
 
   } else if(activeModo==='armado'){
-    const subsCocidos=subs.filter(s=>s.estado==='cocido'||s.estado==='crudo');
     const prodsProt=DB.productos.filter(p=>p.proteina===activeProt);
     if(prodsProt.length===0){frm.innerHTML=`<div class="card"><div class="info-box">No hay productos definidos para esta proteína.</div></div>`;return;}
+    // Primer producto por defecto para mostrar el origen correcto desde el inicio
+    const primerProd=prodsProt[0];
+    const primerOrigen=primerProd.substock;
+    const primerOrigenDef=findSSdef(primerOrigen);
     frm.innerHTML=`<div class="card">
-      <div class="info-box">Tomás de un sub-stock y generás unidades de producto terminado.</div>
+      <div class="info-box">El origen se determina automáticamente según el producto seleccionado.</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
-        <div class="fg"><label>Origen</label>
-          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
-        </div>
         <div class="fg"><label>Producto a generar</label>
-          <select id="pf-producto" onchange="calcArmado()">${prodsProt.map(p=>{
+          <select id="pf-producto" onchange="onArmadoProductoChange()">${prodsProt.map(p=>{
             const kgTeo=calcKgMPTeorico(p);
-            return `<option value="${p.ptKey}">${p.nombre} (porción: ${fmt(p.kgPorcion,3)} kg | MP teo: ${fmt(kgTeo,3)} kg)</option>`;
+            return `<option value="${p.ptKey}" data-substock="${p.substock}">${p.nombre} (porción: ${fmt(p.kgPorcion,3)} kg | MP teo: ${fmt(kgTeo,3)} kg)</option>`;
           }).join('')}</select>
         </div>
         ${respField}
+      </div>
+      <div class="frow" style="align-items:center">
+        <div class="fg"><label>Sub-stock origen (automático)</label>
+          <div id="pf-origen-display" style="padding:7px 9px;font-size:12px;border-radius:8px;border:1px solid #d5d5d0;background:#f0efe8;color:#444">
+            ${primerOrigenDef?.label||primerOrigen} — <strong>${fmtSS(primerOrigen,getSS(primerOrigen))}</strong>
+          </div>
+          <input type="hidden" id="pf-origen" value="${primerOrigen}">
+        </div>
       </div>
       <div class="frow">
         <div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
@@ -847,6 +923,19 @@ function calcCoccion(){
   const prev=document.getElementById('pf-prev');if(!prev)return;
   const teo=DB.teorico[activeProt];
   prev.innerHTML=`Rendimiento: <strong>${ki>0?(ko/ki*100).toFixed(1):'-'}%</strong>${teo?.coccion_pct?` | Teórico: <strong>${teo.coccion_pct}%</strong>`:''} | Merma: <strong>${fmt(ki-ko,2)} kg</strong>`;
+}
+
+function onArmadoProductoChange(){
+  const sel=document.getElementById('pf-producto');if(!sel)return;
+  const ptKey=sel.value;
+  const prod=DB.productos.find(p=>p.ptKey===ptKey);if(!prod)return;
+  const origen=prod.substock;
+  const origenDef=findSSdef(origen);
+  const display=document.getElementById('pf-origen-display');
+  const hidden=document.getElementById('pf-origen');
+  if(display)display.innerHTML=`${origenDef?.label||origen} — <strong>${fmtSS(origen,getSS(origen))}</strong>`;
+  if(hidden)hidden.value=origen;
+  calcArmado();
 }
 
 function updateArmadoSalidaLabel(){
@@ -1444,6 +1533,8 @@ loadDBFromSupabase().then(data=>{
           <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
         </div>
         <div class="user-bar">
+          <span id="sync-indicator" class="hidden"></span>
+          <button class="btn-sm" id="btn-refresh" onclick="manualRefresh()" title="Actualizar datos desde la base">↻ Actualizar</button>
           <div class="user-avatar" id="user-avatar">G</div>
           <span id="user-label">Gerente</span>
           <button class="btn-sm" onclick="doLogout()">Salir</button>
