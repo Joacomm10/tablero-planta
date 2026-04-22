@@ -876,10 +876,10 @@ function renderProcesoForm(){
   } else if(activeModo==='armado'){
     const prodsProt=DB.productos.filter(p=>p.proteina===activeProt);
     if(prodsProt.length===0){frm.innerHTML=`<div class="card"><div class="info-box">No hay productos definidos para esta proteína.</div></div>`;return;}
-    // Primer producto por defecto para mostrar el origen correcto desde el inicio
     const primerProd=prodsProt[0];
     const primerOrigen=primerProd.substock;
     const primerOrigenDef=findSSdef(primerOrigen);
+    const primerEsUnidad=primerOrigenDef?.type==='u';
     frm.innerHTML=`<div class="card">
       <div class="info-box">El origen se determina automáticamente según el producto seleccionado.</div>
       <div class="frow">
@@ -898,12 +898,18 @@ function renderProcesoForm(){
             ${primerOrigenDef?.label||primerOrigen} — <strong>${fmtSS(primerOrigen,getSS(primerOrigen))}</strong>
           </div>
           <input type="hidden" id="pf-origen" value="${primerOrigen}">
+          <input type="hidden" id="pf-origen-tipo" value="${primerEsUnidad?'u':'kg'}">
         </div>
       </div>
-      <div class="frow">
-        <div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
-        <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
+      <div class="frow" id="pf-inputs-armado">
+        ${primerEsUnidad
+          ?`<div class="fg" style="max-width:150px"><label>Unidades usadas del sub-stock</label><input type="number" id="pf-kgin" placeholder="0" step="1" oninput="calcArmado()"></div>
+            <div class="fg" style="max-width:150px"><label>Unidades de PT generadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+            <div class="fg" style="max-width:120px"><label>Unidades sobrantes</label><input type="number" id="pf-recorte" placeholder="0" step="1"></div>`
+          :`<div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+            <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+            <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>`
+        }
       </div>
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button>
@@ -935,10 +941,24 @@ function onArmadoProductoChange(){
   const prod=DB.productos.find(p=>p.ptKey===ptKey);if(!prod)return;
   const origen=prod.substock;
   const origenDef=findSSdef(origen);
+  const esUnidad=origenDef?.type==='u';
   const display=document.getElementById('pf-origen-display');
   const hidden=document.getElementById('pf-origen');
+  const hiddenTipo=document.getElementById('pf-origen-tipo');
   if(display)display.innerHTML=`${origenDef?.label||origen} — <strong>${fmtSS(origen,getSS(origen))}</strong>`;
   if(hidden)hidden.value=origen;
+  if(hiddenTipo)hiddenTipo.value=esUnidad?'u':'kg';
+  // Regenerar inputs según tipo
+  const inputsDiv=document.getElementById('pf-inputs-armado');
+  if(inputsDiv){
+    inputsDiv.innerHTML=esUnidad
+      ?`<div class="fg" style="max-width:150px"><label>Unidades usadas del sub-stock</label><input type="number" id="pf-kgin" placeholder="0" step="1" oninput="calcArmado()"></div>
+         <div class="fg" style="max-width:150px"><label>Unidades de PT generadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+         <div class="fg" style="max-width:120px"><label>Unidades sobrantes</label><input type="number" id="pf-recorte" placeholder="0" step="1"></div>`
+      :`<div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+         <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+         <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>`;
+  }
   calcArmado();
 }
 
@@ -966,13 +986,21 @@ function calcArmado(){
   const sel=document.getElementById('pf-producto');if(!sel)return;
   const prod=DB.productos.find(p=>p.ptKey===sel.value);
   const prev=document.getElementById('pf-prev');if(!prev||!prod||!ki||!uni)return;
-  const ku=(prod.kgPorcion*uni).toFixed(3);
-  const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
-  const kgMPTeo=calcKgMPTeorico(prod);
-  const kgMPReal=ki/uni;
-  const devMP=((kgMPReal-kgMPTeo)/kgMPTeo*100);
-  prev.innerHTML=`Kg cocido teórico para ${uni} u.: <strong>${ku} kg</strong> | Recorte est.: <strong>${rec} kg</strong> | kg MP/u real: <strong>${fmt(kgMPReal,3)}</strong> vs teo: <strong>${fmt(kgMPTeo,3)}</strong> <span class="badge ${Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger'}">${devMP>=0?'+':''}${devMP.toFixed(1)}%</span>`;
-  document.getElementById('pf-recorte').value=rec;
+  const esUnidad=document.getElementById('pf-origen-tipo')?.value==='u';
+  if(esUnidad){
+    // Sub-stock en unidades: 1 unidad sub-stock → 1 unidad PT, sin conversión kg
+    const sobrante=Math.max(0,ki-uni);
+    prev.innerHTML=`Usás <strong>${ki} u.</strong> del sub-stock → <strong>${uni} u.</strong> de PT | Sobrante: <strong>${sobrante} u.</strong>`;
+    document.getElementById('pf-recorte').value=sobrante;
+  } else {
+    const ku=(prod.kgPorcion*uni).toFixed(3);
+    const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
+    const kgMPTeo=calcKgMPTeorico(prod);
+    const kgMPReal=ki/uni;
+    const devMP=((kgMPReal-kgMPTeo)/kgMPTeo*100);
+    prev.innerHTML=`Kg cocido teórico para ${uni} u.: <strong>${ku} kg</strong> | Recorte est.: <strong>${rec} kg</strong> | kg MP/u real: <strong>${fmt(kgMPReal,3)}</strong> vs teo: <strong>${fmt(kgMPTeo,3)}</strong> <span class="badge ${Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger'}">${devMP>=0?'+':''}${devMP.toFixed(1)}%</span>`;
+    document.getElementById('pf-recorte').value=rec;
+  }
 }
 
 function addProcesoLimpieza(){
@@ -1014,18 +1042,25 @@ function addProcesoArmado(){
   const fecha=document.getElementById('pf-fecha').value;
   const origen=document.getElementById('pf-origen').value;
   const ptKey=document.getElementById('pf-producto').value;
-  const kgin=parseFloat(document.getElementById('pf-kgin').value);
+  const esUnidad=document.getElementById('pf-origen-tipo')?.value==='u';
+  const kgin=esUnidad
+    ? parseInt(document.getElementById('pf-kgin').value)
+    : parseFloat(document.getElementById('pf-kgin').value);
   const unidades=parseInt(document.getElementById('pf-unidades').value);
-  const recorte=parseFloat(document.getElementById('pf-recorte').value)||0;
+  const recorte=esUnidad
+    ? parseInt(document.getElementById('pf-recorte').value)||0
+    : parseFloat(document.getElementById('pf-recorte').value)||0;
   const resp=document.getElementById('pf-resp')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(unidades)||kgin<=0||unidades<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);
   if(getSS(origen)<kgin){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
   setSS(origen,getSS(origen)-kgin);
   setPT(ptKey,getPT(ptKey)+unidades);
-  DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',kg_in:kgin,kg_out:kgin-recorte,kg_desperdicio:recorte,
-    unidades,origen:ssO?.label||'',destino:ptKey,substock_origen:origen,
-    responsable:resp,usuario:CU.nombre,id:Date.now()});
+  // kg_in y kg_out se guardan en las unidades del sub-stock (u. o kg según tipo)
+  DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',
+    kg_in:kgin, kg_out:kgin-recorte, kg_desperdicio:recorte,
+    unidades, origen:ssO?.label||'', destino:ptKey, substock_origen:origen,
+    es_unidad:esUnidad, responsable:resp, usuario:CU.nombre, id:Date.now()});
   saveDB();renderProceso();checkAlertas();
 }
 
