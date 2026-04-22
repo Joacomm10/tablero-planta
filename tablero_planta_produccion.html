@@ -738,8 +738,15 @@ function renderResumen(){
     <div style="overflow-x:auto"><table>
       <thead><tr>
         <th>Proteína</th>
-        <th>Kg ingresado</th><th>Kg procesado</th><th>Desperdicio</th><th>Merma cocción</th><th>Neto útil</th>
-        <th>Rend. limp. teo</th><th>Rend. limp. real</th><th>Rend. coc. teo</th><th>Rend. coc. real</th>
+        <th style="background:#f7f5ef">Kg ingresado</th>
+        <th style="background:#f7f5ef">Kg procesado</th>
+        <th style="background:#fdf0f0">Desperdicio</th>
+        <th style="background:#fdf5e8">Merma cocción</th>
+        <th style="background:#edf7f2">Neto útil</th>
+        <th style="background:#eef3fb">Rend. limp. teórico</th>
+        <th style="background:#eef3fb">Rend. limp. real</th>
+        <th style="background:#f2eefb">Rend. coc. teórico</th>
+        <th style="background:#f2eefb">Rend. coc. real</th>
       </tr></thead>
       <tbody>${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>{
         const kgIng=DB.ingresos.filter(r=>r.proteina===prot&&ff(r)).reduce((a,r)=>a+r.kg_bruto,0);
@@ -751,20 +758,19 @@ function renderResumen(){
         const kgNeto=kgProc-kgDesp-kgMerma;
         const dcL=devLimp===null?'bgray':Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger';
         const dcC=devCoc===null?'bgray':Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger';
-        if(kgProc===0&&kgIng===0)return '';
-        return `<tr>
-          <td><strong>${prot}</strong></td>
-          <td>${kgIng>0?fmt(kgIng,2)+' kg':'—'}</td>
-          <td>${kgProc>0?fmt(kgProc,2)+' kg':'—'}</td>
-          <td>${kgDesp>0?`<span style="color:#791f1f">${fmt(kgDesp,2)} kg</span><span style="font-size:10px;color:#888;margin-left:3px">(${kgProc>0?(kgDesp/kgProc*100).toFixed(1):0}%)</span>`:'—'}</td>
-          <td>${kgMerma>0?`<span style="color:#854f0b">${fmt(kgMerma,2)} kg</span>`:'—'}</td>
-          <td>${kgNeto>0?`<strong style="color:#0f6e56">${fmt(kgNeto,2)} kg</strong>`:'—'}</td>
-          <td>${rendLimpTeo?(rendLimpTeo*100).toFixed(1)+'%':'—'}</td>
-          <td>${rendLimpReal!==null?`${(rendLimpReal*100).toFixed(1)}% <span class="badge ${dcL}">${devLimp>=0?'+':''}${devLimp.toFixed(1)}%</span>`:'—'}</td>
-          <td>${rendCocTeo?(rendCocTeo*100).toFixed(1)+'%':'—'}</td>
-          <td>${rendCocReal!==null?`${(rendCocReal*100).toFixed(1)}% <span class="badge ${dcC}">${devCoc>=0?'+':''}${devCoc.toFixed(1)}%</span>`:'—'}</td>
+        return `<tr style="border-bottom:2px solid #f0efe8">
+          <td style="font-weight:600;color:#1a1a1a">${prot}</td>
+          <td style="background:#fafaf7">${kgIng>0?fmt(kgIng,2)+' kg':'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#fafaf7">${kgProc>0?fmt(kgProc,2)+' kg':'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#fffaf9">${kgDesp>0?`<span style="color:#a32d2d;font-weight:500">${fmt(kgDesp,2)} kg</span><br><span style="font-size:10px;color:#c0504d">${kgProc>0?(kgDesp/kgProc*100).toFixed(1):0}%</span>`:'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#fffdf5">${kgMerma>0?`<span style="color:#854f0b;font-weight:500">${fmt(kgMerma,2)} kg</span>`:'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#f5fbf7">${kgNeto>0?`<span style="color:#0f6e56;font-weight:600">${fmt(kgNeto,2)} kg</span>`:'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#f5f8fd;color:#4a6fa5">${rendLimpTeo?(rendLimpTeo*100).toFixed(1)+'%':'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#f5f8fd">${rendLimpReal!==null?`<span style="font-weight:500">${(rendLimpReal*100).toFixed(1)}%</span> <span class="badge ${dcL}">${devLimp>=0?'+':''}${devLimp.toFixed(1)}%</span>`:'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#f8f5fd;color:#6b5aad">${rendCocTeo?(rendCocTeo*100).toFixed(1)+'%':'<span style="color:#bbb">—</span>'}</td>
+          <td style="background:#f8f5fd">${rendCocReal!==null?`<span style="font-weight:500">${(rendCocReal*100).toFixed(1)}%</span> <span class="badge ${dcC}">${devCoc>=0?'+':''}${devCoc.toFixed(1)}%</span>`:'<span style="color:#bbb">—</span>'}</td>
         </tr>`;
-      }).filter(Boolean).join('')}</tbody>
+      }).join('')}</tbody>
     </table></div>
   </div>
 
