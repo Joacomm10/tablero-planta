@@ -1186,7 +1186,8 @@ function renderBalance(){
     const kgRecA=armado.reduce((a,r)=>a+r.kg_desperdicio,0);
     const subsKg=DB.substocks[prot].filter(s=>s.type==='kg').reduce((a,s)=>a+getSS(s.key),0);
     const kgVendido=DB.ventas.reduce((a,v)=>{const p=DB.productos.find(pp=>pp.nombre===v.producto);return p&&p.proteina===prot?a+(calcKgMPTeorico(p)*v.unidades):a;},0);
-    const totalExpl=kgDesp+kgMerma+kgRecA+subsKg+kgVendido;
+    const kgEnPT=DB.productos.filter(p=>p.proteina===prot).reduce((a,p)=>a+(calcKgMPTeorico(p)*getPT(p.ptKey)),0);
+    const totalExpl=kgDesp+kgMerma+kgRecA+subsKg+kgVendido+kgEnPT;
     const diff=kgBruto-totalExpl;
     const balanced=kgBruto===0||Math.abs(diff)<0.5;
     html+=`<div class="card">
@@ -1200,6 +1201,7 @@ function renderBalance(){
         <div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">${fmt(kgMerma,2)} kg</strong></div>
         ${kgRecA>0?`<div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Recorte armado</div><strong style="color:#633806">${fmt(kgRecA,2)} kg</strong></div>`:''}
         <div style="padding:8px;background:#eeedfe;border-radius:8px"><div style="font-size:10px;color:#3c3489;margin-bottom:2px">En sub-stocks kg</div><strong style="color:#3c3489">${fmt(subsKg,2)} kg</strong></div>
+        <div style="padding:8px;background:#e6f1fb;border-radius:8px"><div style="font-size:10px;color:#0c447c;margin-bottom:2px">En PT stock (kg MP teo)</div><strong style="color:#0c447c">${fmt(kgEnPT,3)} kg</strong></div>
         <div style="padding:8px;background:#e1f5ee;border-radius:8px"><div style="font-size:10px;color:#085041;margin-bottom:2px">Vendido (kg MP teo)</div><strong style="color:#085041">${fmt(kgVendido,3)} kg</strong></div>
       </div>
       ${!balanced&&kgBruto>0?`<div style="margin-top:8px;font-size:11px;color:${Math.abs(diff)<2?'#633806':'#791f1f'}">Diferencia sin explicar: ${fmt(diff,2)} kg</div>`:''}
