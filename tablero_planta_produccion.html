@@ -623,10 +623,13 @@ function renderResumen(){
   const vents=DB.ventas.filter(ff);
   const cal=DB.calidad.filter(ff);
   const totalIn=ing.reduce((a,r)=>a+r.kg_bruto,0);
-  const totalDesp=proc.filter(p=>p.tipo==='limpieza').reduce((a,p)=>a+p.kg_desperdicio,0);
+  const limpiezas=proc.filter(p=>p.tipo==='limpieza');
+  const totalLimpIn=limpiezas.reduce((a,p)=>a+p.kg_in,0);
+  const totalDesp=limpiezas.reduce((a,p)=>a+p.kg_desperdicio,0);
   const totalMerma=proc.filter(p=>p.tipo==='coccion').reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
   const totalVU=vents.reduce((a,v)=>a+v.unidades,0);
-  const rendGlobal=totalIn>0?((totalIn-totalDesp)/totalIn*100):0;
+  // Rendimiento calculado desde kg_in real de limpiezas (no desde ingresos registrados)
+  const rendGlobal=totalLimpIn>0?((totalLimpIn-totalDesp)/totalLimpIn*100):0;
   const totalPT=Object.values(DB.pt).reduce((a,v)=>a+v,0);
   const totalCaidas=cal.reduce((a,r)=>a+r.caidas,0);
   const totalPedidos=cal.reduce((a,r)=>a+r.pedidos,0);
@@ -693,10 +696,10 @@ function renderResumen(){
   <div style="font-size:12px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Producción</div>
   <div class="kgrid">
     <div class="kcard ${rendGlobal>=70?'ok':rendGlobal>=55?'warn':'danger'}">
-      <div class="klabel">Rendimiento limpieza</div><div class="kval">${rendGlobal.toFixed(1)}%</div><div class="ksub">neto / bruto</div>
+      <div class="klabel">Rendimiento limpieza</div><div class="kval">${totalLimpIn>0?rendGlobal.toFixed(1)+'%':'—'}</div><div class="ksub">neto / bruto procesado</div>
     </div>
-    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">período</div></div>
-    <div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">${totalIn>0?(totalDesp/totalIn*100).toFixed(1):0}%</div></div>
+    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">${totalLimpIn>0?'procesado: '+fmt(totalLimpIn,1)+' kg':'sin limpiezas'}</div></div>
+    <div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">${totalLimpIn>0?(totalDesp/totalLimpIn*100).toFixed(1):0}% del procesado</div></div>
     <div class="kcard warn"><div class="klabel">Merma cocción</div><div class="kval">${fmt(totalMerma,1)} kg</div><div class="ksub">en proceso</div></div>
     <div class="kcard ok"><div class="klabel">Stock terminado</div><div class="kval">${totalPT}</div><div class="ksub">unidades</div></div>
     <div class="kcard"><div class="klabel">Unidades vendidas</div><div class="kval">${totalVU}</div><div class="ksub">período</div></div>
