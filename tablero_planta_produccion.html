@@ -253,6 +253,7 @@ function defaultDB(){
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
     empleados:JSON.parse(JSON.stringify(DEFAULT_EMPLEADOS)),
+    proveedores:[],
     teorico:JSON.parse(JSON.stringify(DEFAULT_TEORICO)),
     substocks:JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS)),
     productos:JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS)),
@@ -585,7 +586,7 @@ function renderTab(t){
   checkAlertas();
   ({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,
     stock:renderStock,ventas:renderVentas,balance:renderBalance,
-    config:renderConfig,calidad:renderCalidad,admin:renderAdmin}[t]||function(){})();
+    config:renderConfig,calidad:renderCalidad,admin:renderAdmin,proveedores:renderProveedores}[t]||function(){})();
 }
 
 // ============================================================
@@ -734,24 +735,37 @@ function renderResumen(){
 
   <div class="card">
     <div class="ctitle">Rendimientos reales vs teóricos</div>
-    ${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>`
-    <div style="padding:8px 0;border-bottom:1px solid #f0efe8">
-      <div style="font-size:12px;font-weight:500;margin-bottom:6px">${prot}</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div>
-          <span style="font-size:10px;color:#888;text-transform:uppercase">Limpieza</span><br>
-          <span style="font-size:11px">Teórico: <strong>${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%</strong></span>
-          ${rendLimpReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendLimpReal*100).toFixed(1)}%</strong></span>
-          <span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
-        </div>
-        ${rendCocTeo?`<div>
-          <span style="font-size:10px;color:#888;text-transform:uppercase">Cocción</span><br>
-          <span style="font-size:11px">Teórico: <strong>${(rendCocTeo*100).toFixed(1)}%</strong></span>
-          ${rendCocReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendCocReal*100).toFixed(1)}%</strong></span>
-          <span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
-        </div>`:''}
-      </div>
-    </div>`).join('')}
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Proteína</th>
+        <th>Kg ingresado</th><th>Kg procesado</th><th>Desperdicio</th><th>Merma cocción</th><th>Neto útil</th>
+        <th>Rend. limp. teo</th><th>Rend. limp. real</th><th>Rend. coc. teo</th><th>Rend. coc. real</th>
+      </tr></thead>
+      <tbody>${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>{
+        const kgIng=DB.ingresos.filter(r=>r.proteina===prot&&ff(r)).reduce((a,r)=>a+r.kg_bruto,0);
+        const limpProt=proc.filter(p=>p.proteina===prot&&p.tipo==='limpieza');
+        const cocProt=proc.filter(p=>p.proteina===prot&&p.tipo==='coccion');
+        const kgProc=limpProt.reduce((a,p)=>a+p.kg_in,0);
+        const kgDesp=limpProt.reduce((a,p)=>a+p.kg_desperdicio,0);
+        const kgMerma=cocProt.reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
+        const kgNeto=kgProc-kgDesp-kgMerma;
+        const dcL=devLimp===null?'bgray':Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger';
+        const dcC=devCoc===null?'bgray':Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger';
+        if(kgProc===0&&kgIng===0)return '';
+        return `<tr>
+          <td><strong>${prot}</strong></td>
+          <td>${kgIng>0?fmt(kgIng,2)+' kg':'—'}</td>
+          <td>${kgProc>0?fmt(kgProc,2)+' kg':'—'}</td>
+          <td>${kgDesp>0?`<span style="color:#791f1f">${fmt(kgDesp,2)} kg</span><span style="font-size:10px;color:#888;margin-left:3px">(${kgProc>0?(kgDesp/kgProc*100).toFixed(1):0}%)</span>`:'—'}</td>
+          <td>${kgMerma>0?`<span style="color:#854f0b">${fmt(kgMerma,2)} kg</span>`:'—'}</td>
+          <td>${kgNeto>0?`<strong style="color:#0f6e56">${fmt(kgNeto,2)} kg</strong>`:'—'}</td>
+          <td>${rendLimpTeo?(rendLimpTeo*100).toFixed(1)+'%':'—'}</td>
+          <td>${rendLimpReal!==null?`${(rendLimpReal*100).toFixed(1)}% <span class="badge ${dcL}">${devLimp>=0?'+':''}${devLimp.toFixed(1)}%</span>`:'—'}</td>
+          <td>${rendCocTeo?(rendCocTeo*100).toFixed(1)+'%':'—'}</td>
+          <td>${rendCocReal!==null?`${(rendCocReal*100).toFixed(1)}% <span class="badge ${dcC}">${devCoc>=0?'+':''}${devCoc.toFixed(1)}%</span>`:'—'}</td>
+        </tr>`;
+      }).filter(Boolean).join('')}</tbody>
+    </table></div>
   </div>
 
   </div>`;
@@ -844,7 +858,13 @@ function renderIngreso(){
       <div class="fg"><label>Proteína</label><select id="i-prot">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div>
       <div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div>
-      <div class="fg"><label>Proveedor</label><input type="text" id="i-prov" placeholder="Opcional"></div>
+      <div class="fg"><label>Proveedor</label>
+          <select id="i-prov">
+            <option value="">Sin proveedor</option>
+            ${(DB.proveedores||[]).map(p=>`<option value="${p}">${p}</option>`).join('')}
+            <option value="__otro__">Otro (escribir)</option>
+          </select>
+        </div>
     </div>
     <button class="btn btn-primary" onclick="addIngreso()">+ Agregar ingreso</button>
   </div>
@@ -866,7 +886,8 @@ function addIngreso(){
   const proteina=document.getElementById('i-prot').value;
   const kg=parseFloat(document.getElementById('i-kg').value);
   const costo=parseFloat(document.getElementById('i-costo').value)||0;
-  const prov=document.getElementById('i-prov').value;
+  let prov=document.getElementById('i-prov').value;
+  if(prov==='__otro__'){prov=prompt('Ingresá el nombre del proveedor:')||'';}
   if(!fecha||isNaN(kg)||kg<=0){alert('Completá fecha, proteína y kg bruto.');return;}
   DB.ingresos.push({fecha,proteina,kg_bruto:kg,costo_kg:costo,proveedor:prov,usuario:CU.nombre,id:Date.now()});
   const mpSS=DB.substocks[proteina]?.find(s=>s.estado==='mp');
@@ -1516,10 +1537,25 @@ function delProducto(i){
 // ============================================================
 function renderAdmin(){
   if(CU.role!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','proveedores'];
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
+  <div class="card">
+    <div class="ctitle">Proveedores</div>
+    <div class="info-box">Los proveedores cargados acá aparecen en el desplegable al registrar ingresos de MP y se usan en el análisis comparativo.</div>
+    <div class="frow">
+      <div class="fg"><label>Nombre del proveedor</label><input type="text" id="prov-nombre" placeholder="Ej: Los Hermanos"></div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="addProveedor()">+ Agregar</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      ${(DB.proveedores||[]).length===0?'<span style="color:#888;font-size:12px">Sin proveedores cargados.</span>':
+        (DB.proveedores||[]).map((e,i)=>`<div style="display:flex;align-items:center;gap:6px;background:#f0efe8;border-radius:99px;padding:4px 12px;font-size:12px">
+          ${e} <button class="btn-sm" onclick="delProveedor(${i})" style="padding:0 4px;font-size:12px;border:none">×</button>
+        </div>`).join('')}
+    </div>
+  </div>
+
   <div class="card">
     <div class="ctitle">Empleados</div>
     <div class="info-box">Los empleados que cargues acá aparecen como opciones en el campo "Responsable" de cada proceso.</div>
@@ -1591,7 +1627,7 @@ function addUser(){
   const role=document.getElementById('nu-role').value;
   if(!nombre||!id||!pass){alert('Completá todos los campos.');return;}
   if(DB.users.find(u=>u.id===id)){alert('Ya existe un usuario con ese ID.');return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','proveedores'];
   const perms={admin:false};
   TABS.forEach(t=>perms[t]=role==='gerente'?true:['resumen','ingreso','proceso'].includes(t));
   DB.users.push({id,nombre,pass,role,perms});
@@ -1616,20 +1652,124 @@ function addEmpleado(){
   const nombre=document.getElementById('emp-nombre').value.trim();
   if(!nombre){alert('Ingresá un nombre.');return;}
   if(!DB.empleados)DB.empleados=[];
+  if(!DB.proveedores)DB.proveedores=[];
   if(DB.empleados.includes(nombre)){alert('Ya existe ese empleado.');return;}
   DB.empleados.push(nombre);saveDB();renderAdmin();
 }
+// ============================================================
+// PROVEEDORES
+// ============================================================
+function renderProveedores(){
+  const el=document.getElementById('proveedores');
+  const prots=Object.keys(DB.substocks);
+
+  // Agrupar ingresos por proteína → proveedor
+  const data={};
+  prots.forEach(prot=>{
+    data[prot]={};
+    DB.ingresos.filter(r=>r.proteina===prot&&r.proveedor).forEach(ing=>{
+      const prov=ing.proveedor;
+      if(!data[prot][prov])data[prot][prov]={ingresos:[],procesos:[]};
+      data[prot][prov].ingresos.push(ing);
+    });
+    // Para cada ingreso, buscar el proceso de limpieza más cercano en fecha
+    // Asociamos limpiezas por fecha al proveedor del ingreso más reciente anterior
+    const ingOrd=DB.ingresos.filter(r=>r.proteina===prot&&r.proveedor).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    DB.procesos.filter(p=>p.proteina===prot&&p.tipo==='limpieza').forEach(proc=>{
+      // Encontrar el ingreso activo en la fecha del proceso (el más reciente ≤ fecha proceso)
+      const ingActivo=ingOrd.filter(i=>i.fecha<=proc.fecha).slice(-1)[0];
+      if(ingActivo&&data[prot][ingActivo.proveedor]){
+        data[prot][ingActivo.proveedor].procesos.push(proc);
+      }
+    });
+  });
+
+  let html=`<p class="sechead">Comparativa por proveedor</p>`;
+  let hayDatos=false;
+
+  prots.forEach(prot=>{
+    const provs=Object.entries(data[prot]).filter(([,d])=>d.ingresos.length>0);
+    if(provs.length===0)return;
+    hayDatos=true;
+
+    // Calcular stats por proveedor
+    const rows=provs.map(([prov,d])=>{
+      const kgTotal=d.ingresos.reduce((a,r)=>a+r.kg_bruto,0);
+      const costoPromKg=d.ingresos.reduce((a,r)=>a+(r.costo_kg*r.kg_bruto),0)/kgTotal||0;
+      const limpiezas=d.procesos;
+      const kgLimpIn=limpiezas.reduce((a,p)=>a+p.kg_in,0);
+      const kgDesp=limpiezas.reduce((a,p)=>a+p.kg_desperdicio,0);
+      const rendReal=kgLimpIn>0?((kgLimpIn-kgDesp)/kgLimpIn*100):null;
+      // Precio efectivo = costo/kg ajustado por desperdicio
+      const precioEfectivo=rendReal!==null&&rendReal>0?costoPromKg/(rendReal/100):null;
+      const nCompras=d.ingresos.length;
+      // Últimas 3 limpiezas para benchmark
+      const ult3=limpiezas.slice(-3);
+      const rendUlt3=ult3.length>0?ult3.reduce((a,p)=>a+(p.kg_in>0?(p.kg_in-p.kg_desperdicio)/p.kg_in*100:0),0)/ult3.length:null;
+      return{prov,kgTotal,costoPromKg,rendReal,rendUlt3,precioEfectivo,nCompras,nLimp:limpiezas.length};
+    }).sort((a,b)=>b.kgTotal-a.kgTotal);
+
+    // Mejor proveedor por precio efectivo
+    const mejorPrecio=rows.filter(r=>r.precioEfectivo!==null).sort((a,b)=>a.precioEfectivo-b.precioEfectivo)[0];
+
+    html+=`<div class="card">
+      <div class="ctitle" style="margin-bottom:10px">${prot}</div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr>
+          <th>Proveedor</th><th>Compras</th><th>Kg total</th>
+          <th>$/kg compra</th><th>Rend. limpieza</th><th>Rend. últ. 3</th>
+          <th>$/kg efectivo</th><th></th>
+        </tr></thead>
+        <tbody>${rows.map(r=>{
+          const esMejor=mejorPrecio&&r.prov===mejorPrecio.prov;
+          const dc=r.rendReal===null?'bgray':r.rendReal>=70?'bok':r.rendReal>=55?'bwarn':'bdanger';
+          const dc3=r.rendUlt3===null?'bgray':r.rendUlt3>=70?'bok':r.rendUlt3>=55?'bwarn':'bdanger';
+          return `<tr style="${esMejor?'background:#f0faf5':''}">
+            <td><strong>${r.prov}</strong>${esMejor?' <span class="badge bok">mejor precio</span>':''}</td>
+            <td style="color:#888">${r.nCompras} comp.</td>
+            <td>${fmt(r.kgTotal,2)} kg</td>
+            <td>${r.costoPromKg>0?'$'+fmt(r.costoPromKg,2):'—'}</td>
+            <td>${r.rendReal!==null?`<span class="badge ${dc}">${r.rendReal.toFixed(1)}%</span>`:'<span class="badge bgray">Sin datos</span>'}</td>
+            <td>${r.rendUlt3!==null?`<span class="badge ${dc3}">${r.rendUlt3.toFixed(1)}%</span> <span style="font-size:10px;color:#888">(${Math.min(3,r.nLimp)} limp.)</span>`:'<span class="badge bgray">—</span>'}</td>
+            <td>${r.precioEfectivo!==null?`<strong style="color:${esMejor?'#0f6e56':'#1a1a1a'}">$${fmt(r.precioEfectivo,2)}</strong>`:'—'}</td>
+            <td style="font-size:10px;color:#888">${r.nLimp} limp. reg.</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+      <div style="font-size:10px;color:#888;margin-top:8px">$/kg efectivo = precio de compra ajustado por rendimiento real de limpieza. Menor es mejor.</div>
+    </div>`;
+  });
+
+  if(!hayDatos){
+    html+=`<div class="card"><div style="color:#888;font-size:12px;padding:1rem;text-align:center">
+      Sin datos de proveedores. Registrá ingresos con proveedor asignado para ver la comparativa.
+    </div></div>`;
+  }
+  el.innerHTML=html;
+}
+
 function delEmpleado(i){
   DB.empleados.splice(i,1);saveDB();renderAdmin();
 }
 
+function addProveedor(){
+  const nombre=document.getElementById('prov-nombre').value.trim();
+  if(!nombre){alert('Ingresá un nombre.');return;}
+  if(!DB.proveedores)DB.proveedores=[];
+  if(DB.proveedores.includes(nombre)){alert('Ya existe ese proveedor.');return;}
+  DB.proveedores.push(nombre);saveDB();renderAdmin();
+}
+function delProveedor(i){
+  DB.proveedores.splice(i,1);saveDB();renderAdmin();
+}
+
 function resetDB(){
   if(!confirm('¿Seguro? No se puede deshacer.'))return;
-  const{users,teorico,substocks,productos}=DB;
+  const{users,teorico,substocks,productos,empleados,proveedores}=DB;
   DB={ingresos:[],procesos:[],ventas:[],calidad:[],
       ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
       pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
-      users,teorico,substocks,productos};
+      users,teorico,substocks,productos,empleados,proveedores};
   saveDB();alert('Base reseteada.');renderTab('resumen');
 }
 
@@ -1668,6 +1808,7 @@ function migrateDB(){
   if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
   if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
   if(!DB.empleados)DB.empleados=[];
+  if(!DB.proveedores)DB.proveedores=[];
   DB.productos.forEach(p=>{
     if(!p.chain)p.chain=['limpieza','coccion'];
     if(!p.kgPorcion&&p.kgLPU)p.kgPorcion=p.kgLPU;
@@ -1719,6 +1860,7 @@ loadDBFromSupabase().then(data=>{
           <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
           <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
           <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
+          <button class="tab" data-tab="proveedores" onclick="showTab('proveedores',this)">Proveedores</button>
           <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
         </div>
         <div class="user-bar">
@@ -1740,6 +1882,7 @@ loadDBFromSupabase().then(data=>{
       <div id="config" class="sec"></div>
       <div id="calidad" class="sec"></div>
       <div id="admin" class="sec"></div>
+      <div id="proveedores" class="sec"></div>
     </div>`;
   initLoginSelect();
   // Restaurar sesión si el usuario ya estaba logueado
