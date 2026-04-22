@@ -535,13 +535,17 @@ function initLoginSelect(){
     DB.users.map(u=>`<option value="${u.id}">${u.nombre}</option>`).join('');
 }
 
-function doLogin(){
-  const uid=document.getElementById('login-user').value;
-  const pass=document.getElementById('login-pass').value;
+function doLogin(uid_override){
+  const uid=uid_override||document.getElementById('login-user').value;
+  const pass=document.getElementById('login-pass')?.value||'';
   if(!uid){document.getElementById('login-error').textContent='Seleccioná un usuario.';return;}
   const user=DB.users.find(u=>u.id===uid);
-  if(!user||pass!==user.pass){document.getElementById('login-error').textContent='Contraseña incorrecta.';return;}
+  if(!user||(uid_override?false:pass!==user.pass)){
+    if(document.getElementById('login-error'))document.getElementById('login-error').textContent='Contraseña incorrecta.';
+    return false;
+  }
   CU=user;
+  sessionStorage.setItem('cu_id', user.id);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('user-label').textContent=user.nombre;
@@ -554,10 +558,12 @@ function doLogin(){
   if(firstTab)firstTab.click();
   checkAlertas();
   startAutoRefresh();
+  return true;
 }
 
 function doLogout(){
   CU=null;
+  sessionStorage.removeItem('cu_id');
   stopAutoRefresh();
   document.getElementById('main-screen').style.display='none';
   document.getElementById('login-screen').style.display='block';
@@ -1252,7 +1258,28 @@ function renderStock(){
   el.innerHTML=html;
 }
 
-function editSS(k,v){if(CU.role!=='gerente')return;setSS(k,parseFloat(v));saveDB();}
+function editSS(k,v){
+  if(CU.role!=='gerente')return;
+  setSS(k,parseFloat(v));
+  saveDB();
+  // Si el form de proceso está abierto, actualizar el display del origen inmediatamente
+  const origenHidden=document.getElementById('pf-origen');
+  if(origenHidden&&origenHidden.value===k){
+    const origenDef=findSSdef(k);
+    const display=document.getElementById('pf-origen-display');
+    if(display)display.innerHTML=`${origenDef?.label||k} — <strong>${fmtSS(k,getSS(k))}</strong>`;
+  }
+  // También actualizar selects de cocción que muestren este sub-stock
+  const origenSelect=document.getElementById('pf-origen');
+  if(origenSelect&&origenSelect.tagName==='SELECT'){
+    Array.from(origenSelect.options).forEach(opt=>{
+      if(opt.value===k){
+        const def=findSSdef(k);
+        opt.text=`${def?.label||k} — ${fmtSS(k,getSS(k))}`;
+      }
+    });
+  }
+}
 function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB();}
 
 // ============================================================
@@ -1715,6 +1742,12 @@ loadDBFromSupabase().then(data=>{
       <div id="admin" class="sec"></div>
     </div>`;
   initLoginSelect();
+  // Restaurar sesión si el usuario ya estaba logueado
+  const savedUid=sessionStorage.getItem('cu_id');
+  if(savedUid){
+    const ok=doLogin(savedUid);
+    if(!ok)sessionStorage.removeItem('cu_id');
+  }
 }).catch(e=>{
   console.error(e);
   document.getElementById('app').innerHTML=`
