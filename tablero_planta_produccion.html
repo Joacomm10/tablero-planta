@@ -1173,10 +1173,16 @@ async function importarPedidos(){
     }
 
     // Cruzar con productos del tablero via stockNombre
+    // La planilla guarda nombres sin 'g' al final (ej: '- 170' en vez de '- 170g')
+    // Normalizamos para comparar
+    function normalizarNombre(n){ return n.toLowerCase().trim().replace(/g$/, '').trim(); }
     const matcheados = [];
     const noMatcheados = [];
     Object.entries(totales).forEach(([stockNombre, cant])=>{
-      const prod = DB.productos.find(p=>p.stockNombre && p.stockNombre.toLowerCase().trim()===stockNombre.toLowerCase().trim());
+      const prod = DB.productos.find(p=>{
+        if(!p.stockNombre) return false;
+        return normalizarNombre(p.stockNombre) === normalizarNombre(stockNombre);
+      });
       if(prod){
         const stockActual = getPT(prod.ptKey);
         matcheados.push({prod, cant, stockActual, stockNombre});
