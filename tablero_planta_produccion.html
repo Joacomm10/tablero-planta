@@ -63,23 +63,6 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 .pill-kg{background:#e6f1fb;color:#0c447c;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .pill-u{background:#eeedfe;color:#3c3489;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .month-filter{display:flex;align-items:center;gap:8px;margin-bottom:1rem;font-size:12px}
-.tr-clickable{cursor:pointer}
-.tr-clickable:hover td{background:#f7f7f2}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
-.modal{background:#fff;border-radius:14px;padding:1.5rem;max-width:520px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.18);position:relative;max-height:90vh;overflow-y:auto}
-.modal-title{font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:4px}
-.modal-sub{font-size:11px;color:#888;margin-bottom:1rem}
-.modal-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:18px;color:#888;cursor:pointer;line-height:1}
-.modal-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0efe8;font-size:12px}
-.modal-row:last-child{border-bottom:none}
-.modal-label{color:#666}
-.modal-val{font-weight:500;color:#1a1a1a}
-.modal-section{font-size:10px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin:12px 0 6px}
-#sync-indicator{font-size:11px;padding:3px 10px;border-radius:99px;transition:opacity .4s}
-#sync-indicator.saving{background:#faeeda;color:#633806}
-#sync-indicator.saved{background:#e1f5ee;color:#085041}
-#sync-indicator.error{background:#fcebeb;color:#791f1f}
-#sync-indicator.hidden{opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -157,44 +140,43 @@ const DEFAULT_SUBSTOCKS = {
 //   'mp->lpu->crudo->cocido' etc.
 const DEFAULT_PRODUCTOS = [
   // Tapa de asado
-  {nombre:'Ternera braseada - 150g',   proteina:'Tapa de asado', kgPorcion:0.150, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 150g'},
-  {nombre:'Ternera braseada - 200g',   proteina:'Tapa de asado', kgPorcion:0.200, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 200g'},
-  {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Goulash 200g'},
-  {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Pulled Beef 250g'},
-  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo'},
-  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo'},
-  // Pechuga - medallones (solo limpieza, se venden por unidad cocida)
-  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga limón 170g'},
-  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga limón 250g'},
-  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 170g'},
-  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 250g'},
-  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 170g'},
-  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 250g'},
-  // Pechuga - cubos y tiras (limpieza + cocción, se vende por kg cocido)
-  {nombre:'Curry de pollo - 200g',     proteina:'Pechuga', kgPorcion:0.110, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 200g'},
-  {nombre:'Curry de pollo - 300g',     proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 300g'},
-  {nombre:'Pollo teriyaki - 200g',     proteina:'Pechuga', kgPorcion:0.088, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 200g'},
-  {nombre:'Pollo teriyaki - 300g',     proteina:'Pechuga', kgPorcion:0.131, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 300g'},
-  {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 200g'},
-  {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 300g'},
-  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap César'},
-  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Ensalada César'},
-  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap italiano'},
-  // Solomillo - medallones (solo limpieza, grameo en crudo)
-  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza'], ptKey:'Solomillo hawaiano 170g'},
-  // Solomillo - tiras (limpieza + cocción)
-  {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 200g'},
-  {nombre:'Tiras de solomillo - 300g', proteina:'Solomillo', kgPorcion:0.127, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 300g'},
-  // Bondiola (limpieza + cocción, se porciona cocida)
-  {nombre:'Bondiola laqueada - 250g',  proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_medallon', chain:['limpieza','coccion'], ptKey:'Bondiola laqueada 250g'},
-  {nombre:'Pulled Pork - 250g',        proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Pulled Pork 250g'},
-  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Wrap pastor'},
-  // Lomo (solo limpieza, grameo en crudo)
-  {nombre:'Lomo al tomillo - 180g',    proteina:'Lomo', kgPorcion:0.180, substock:'lomo_medallon_180_crudo', chain:['limpieza'], ptKey:'Lomo al tomillo 180g'},
-  // Cuadril (limpieza + cocción)
-  {nombre:'Tiras de cuadril con hongos - 170g',    proteina:'Cuadril', kgPorcion:0.181, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril hongos 170g'},
-  {nombre:'Tiras de cuadril con vegetales - 200g', proteina:'Cuadril', kgPorcion:0.089, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 200g'},
-  {nombre:'Tiras de cuadril con vegetales - 300g', proteina:'Cuadril', kgPorcion:0.133, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 300g'},
+  {nombre:'Ternera braseada - 150g',   proteina:'Tapa de asado', kgPorcion:0.150, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 150g',    stockNombre:'Ternera braseada al horno - 150g'},
+  {nombre:'Ternera braseada - 200g',   proteina:'Tapa de asado', kgPorcion:0.200, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 200g',    stockNombre:'Ternera braseada al horno - 200g'},
+  {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Goulash 200g',             stockNombre:'Goulash - 200g'},
+  {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Pulled Beef 250g',         stockNombre:'Pulled Beef - 250g'},
+  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo',             stockNombre:''},
+  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',        stockNombre:''},
+  // Pechuga - medallones
+  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
+  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
+  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 170g',  stockNombre:'Pechuga con tomillo - 170g'},
+  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 250g',  stockNombre:'Pechuga con tomillo - 250g'},
+  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 170g',stockNombre:'Pechuga provenzal - 170g'},
+  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 250g',stockNombre:'Pechuga Provenzal - 250g'},
+  // Pechuga - cubos y tiras
+  {nombre:'Curry de pollo - 200g',     proteina:'Pechuga', kgPorcion:0.110, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 200g',       stockNombre:'Curry de pollo - 200g'},
+  {nombre:'Curry de pollo - 300g',     proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 300g',       stockNombre:'Curry de pollo - 300g'},
+  {nombre:'Pollo teriyaki - 200g',     proteina:'Pechuga', kgPorcion:0.088, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 200g',    stockNombre:'Pollo teriyaki - 200g'},
+  {nombre:'Pollo teriyaki - 300g',     proteina:'Pechuga', kgPorcion:0.131, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 300g',    stockNombre:'Pollo teriyaki - 300g'},
+  {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 200g', stockNombre:'Tiras de pollo con vegetales - 200g'},
+  {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 300g', stockNombre:'Tiras de pollo con vegetales - 300g'},
+  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap César',             stockNombre:''},
+  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Ensalada César',         stockNombre:''},
+  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap italiano',          stockNombre:''},
+  // Solomillo
+  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
+  {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 200g',   stockNombre:'Tiras de solomillo con vegetales - 200g'},
+  {nombre:'Tiras de solomillo - 300g', proteina:'Solomillo', kgPorcion:0.127, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 300g',   stockNombre:'Tiras de solomillo con vegetales - 300g'},
+  // Bondiola
+  {nombre:'Bondiola laqueada - 250g',  proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_medallon', chain:['limpieza','coccion'], ptKey:'Bondiola laqueada 250g', stockNombre:'Bondiola laqueada - 250g'},
+  {nombre:'Pulled Pork - 250g',        proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Pulled Pork 250g',       stockNombre:'Pulled Pork - 250g'},
+  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Wrap pastor',            stockNombre:''},
+  // Lomo
+  {nombre:'Lomo al tomillo - 180g',    proteina:'Lomo', kgPorcion:0.180, substock:'lomo_medallon_180_crudo', chain:['limpieza'], ptKey:'Lomo al tomillo 180g',               stockNombre:'Medallón de lomo con tomillo - 150g'},
+  // Cuadril
+  {nombre:'Tiras de cuadril con hongos - 170g',    proteina:'Cuadril', kgPorcion:0.181, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril hongos 170g', stockNombre:'Tiras de res con hongos - 170g'},
+  {nombre:'Tiras de cuadril con vegetales - 200g', proteina:'Cuadril', kgPorcion:0.089, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 200g',    stockNombre:'Tiras de cuadril con vegetales - 200g'},
+  {nombre:'Tiras de cuadril con vegetales - 300g', proteina:'Cuadril', kgPorcion:0.133, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 300g',    stockNombre:'Tiras de cuadril con vegetales - 300g'},
 ];
 
 // Stock inicial
@@ -253,7 +235,6 @@ function defaultDB(){
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
     empleados:JSON.parse(JSON.stringify(DEFAULT_EMPLEADOS)),
-    proveedores:[],
     teorico:JSON.parse(JSON.stringify(DEFAULT_TEORICO)),
     substocks:JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS)),
     productos:JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS)),
@@ -273,17 +254,9 @@ async function loadDBFromSupabase(){
   return null;
 }
 
-let _saving=false;
-let _lastSaveTime=0; // timestamp ms de la última vez que guardamos
-const REFRESH_GUARD_MS=10000; // no refrescar hasta 10 segundos después del último save
-
 async function saveDB(){
-  if(_saving)return;
-  _saving=true;
-  _lastSaveTime=Date.now();
-  const ind=document.getElementById('sync-indicator');
-  if(ind){ind.textContent='Guardando...';ind.className='saving';}
   try{
+    // Upsert — inserta si no existe, actualiza si ya existe
     await fetch(`${SB_URL}/rest/v1/datos`,{
       method:'POST',
       headers:{
@@ -294,28 +267,7 @@ async function saveDB(){
       },
       body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
     });
-    _lastSaveTime=Date.now(); // actualizar tras confirmar el save exitoso
-    if(ind){ind.textContent='✓ Guardado';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2500);}
-  }catch(e){
-    console.error('Error guardando en Supabase:',e);
-    if(ind){ind.textContent='Error al guardar — reintentando...';ind.className='error';}
-    // Reintentar una vez después de 3 segundos
-    setTimeout(async()=>{
-      try{
-        await fetch(`${SB_URL}/rest/v1/datos`,{
-          method:'POST',
-          headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
-        });
-        _lastSaveTime=Date.now();
-        if(ind){ind.textContent='✓ Guardado';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2500);}
-      }catch(e2){
-        if(ind){ind.textContent='⚠ Error al guardar — verificá tu conexión';ind.className='error';}
-      }
-    },3000);
-  }finally{
-    _saving=false;
-  }
+  }catch(e){console.error('Error guardando en Supabase:',e);}
 }
 
 // DB en memoria — se carga al iniciar
@@ -380,148 +332,6 @@ function calcKgMPReal(proteina){
   return{rendLimp,rendCoc,kgIn,kgDesp,kgCocIn,kgCocOut};
 }
 
-// ============================================================
-// AUTO-REFRESH (sincronización entre dispositivos)
-// ============================================================
-let _refreshInterval=null;
-const REFRESH_INTERVAL_MS=60000; // 60 segundos
-
-async function manualRefresh(){
-  const btn=document.getElementById('btn-refresh');
-  const ind=document.getElementById('sync-indicator');
-  // Si guardamos hace menos de 10 segundos, no refrescar (evita pisar datos propios)
-  if(Date.now()-_lastSaveTime < REFRESH_GUARD_MS){
-    if(ind){ind.textContent='Datos recién guardados';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2000);}
-    return;
-  }
-  if(btn)btn.textContent='↻ Actualizando...';
-  if(ind){ind.textContent='Actualizando...';ind.className='saving';}
-  try{
-    const data=await loadDBFromSupabase();
-    if(data){
-      DB=data;
-      migrateDB();
-      const activeTab=document.querySelector('.tab.active');
-      if(activeTab)renderTab(activeTab.dataset.tab);
-      checkAlertas();
-      if(ind){ind.textContent='✓ Actualizado';ind.className='saved';setTimeout(()=>{ind.className='hidden';},2500);}
-    }
-  }catch(e){
-    if(ind){ind.textContent='Error al actualizar';ind.className='error';}
-  }finally{
-    if(btn)btn.textContent='↻ Actualizar';
-  }
-}
-
-function startAutoRefresh(){
-  if(_refreshInterval)clearInterval(_refreshInterval);
-  _refreshInterval=setInterval(async()=>{
-    // No refrescar si estamos guardando o si guardamos hace menos de 10 segundos
-    if(_saving)return;
-    if(Date.now()-_lastSaveTime < REFRESH_GUARD_MS)return;
-    const activeTab=document.querySelector('.tab.active');
-    const tab=activeTab?.dataset.tab;
-    const readOnlyTabs=['resumen','stock','balance'];
-    if(!tab||!readOnlyTabs.includes(tab))return;
-    try{
-      const data=await loadDBFromSupabase();
-      if(data){
-        DB=data;
-        migrateDB();
-        const activeTab=document.querySelector('.tab.active');
-        if(activeTab)renderTab(activeTab.dataset.tab);
-        checkAlertas();
-      }
-    }catch(e){console.error('Auto-refresh error:',e);}
-  },REFRESH_INTERVAL_MS);
-}
-
-function stopAutoRefresh(){
-  if(_refreshInterval){clearInterval(_refreshInterval);_refreshInterval=null;}
-}
-
-function showProcesoDetalle(idx){
-  const p=DB.procesos[idx];if(!p)return;
-  const teo=DB.teorico[p.proteina];
-  const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':'bteal';
-
-  let detalleHTML='';
-
-  if(p.tipo==='limpieza'){
-    const rendReal=p.kg_in>0?((p.kg_in-p.kg_desperdicio)/p.kg_in*100):0;
-    const rendTeo=teo?(100-teo.desp_limpieza_pct):null;
-    const dev=rendTeo!==null?rendReal-rendTeo:null;
-    const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
-    detalleHTML+=`
-      <div class="modal-section">Resumen</div>
-      <div class="modal-row"><span class="modal-label">Kg entrada (bruto)</span><span class="modal-val">${fmt(p.kg_in,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Kg desperdicio</span><span class="modal-val" style="color:#791f1f">${fmt(p.kg_desperdicio,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Kg neto (limpio)</span><span class="modal-val">${fmt(p.kg_out,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Rendimiento real</span><span class="modal-val">${rendReal.toFixed(1)}%${rendTeo!==null?` <span class="badge ${dc}">${dev>=0?'+':''}${dev.toFixed(1)}% vs teo ${rendTeo.toFixed(1)}%</span>`:''}</span></div>`;
-    if(p.dists&&Object.keys(p.dists).length>0){
-      detalleHTML+=`<div class="modal-section">Distribución a sub-stocks</div>`;
-      Object.entries(p.dists).forEach(([key,val])=>{
-        if(!val||val===0)return;
-        const def=findSSdef(key);
-        detalleHTML+=`<div class="modal-row"><span class="modal-label">${def?.label||key}</span><span class="modal-val">${fmtSS(key,val)}</span></div>`;
-      });
-      const totalDist=Object.values(p.dists).reduce((a,v)=>a+(parseFloat(v)||0),0);
-      const sinDistribuir=p.kg_out-totalDist;
-      if(Math.abs(sinDistribuir)>0.01){
-        detalleHTML+=`<div class="modal-row"><span class="modal-label" style="color:#888">Sin distribuir</span><span class="modal-val" style="color:#e24b4a">${fmt(sinDistribuir,2)} kg</span></div>`;
-      }
-    }
-  } else if(p.tipo==='coccion'){
-    const rendReal=p.kg_in>0?(p.kg_out/p.kg_in*100):0;
-    const rendTeo=teo?.coccion_pct||null;
-    const dev=rendTeo!==null?rendReal-rendTeo:null;
-    const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
-    detalleHTML+=`
-      <div class="modal-section">Resumen</div>
-      <div class="modal-row"><span class="modal-label">Origen</span><span class="modal-val">${p.origen||'—'}</span></div>
-      <div class="modal-row"><span class="modal-label">Destino</span><span class="modal-val">${p.destino||'—'}</span></div>
-      <div class="modal-row"><span class="modal-label">Kg entrada</span><span class="modal-val">${fmt(p.kg_in,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Kg cocidos resultado</span><span class="modal-val">${fmt(p.kg_out,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Merma</span><span class="modal-val" style="color:#854f0b">${fmt(p.kg_in-p.kg_out,2)} kg</span></div>
-      <div class="modal-row"><span class="modal-label">Rendimiento real</span><span class="modal-val">${rendReal.toFixed(1)}%${rendTeo!==null?` <span class="badge ${dc}">${dev>=0?'+':''}${dev.toFixed(1)}% vs teo ${rendTeo.toFixed(1)}%</span>`:''}</span></div>`;
-  } else if(p.tipo==='armado'){
-    const prod=DB.productos.find(pp=>pp.ptKey===p.destino);
-    const kgMPTeo=prod?calcKgMPTeorico(prod):null;
-    const kgMPReal=p.unidades>0?p.kg_in/p.unidades:null;
-    const devMP=kgMPTeo&&kgMPReal?((kgMPReal-kgMPTeo)/kgMPTeo*100):null;
-    const dc=devMP===null?'bgray':Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger';
-    const esU=p.es_unidad;
-    detalleHTML+=`
-      <div class="modal-section">Resumen</div>
-      <div class="modal-row"><span class="modal-label">Origen (sub-stock)</span><span class="modal-val">${p.origen||'—'}</span></div>
-      <div class="modal-row"><span class="modal-label">Producto generado</span><span class="modal-val">${p.destino||'—'}</span></div>
-      <div class="modal-row"><span class="modal-label">${esU?'Unidades usadas del sub-stock':'Kg de sub-stock usados'}</span><span class="modal-val">${esU?p.kg_in+' u.':fmt(p.kg_in,2)+' kg'}</span></div>
-      <div class="modal-row"><span class="modal-label">Unidades de PT generadas</span><span class="modal-val">${p.unidades||0} u.</span></div>
-      <div class="modal-row"><span class="modal-label">${esU?'Unidades sobrantes':'Recorte / desperdicio'}</span><span class="modal-val">${esU?(p.kg_desperdicio||0)+' u.':fmt(p.kg_desperdicio,2)+' kg'}</span></div>
-      ${!esU&&kgMPTeo&&kgMPReal?`<div class="modal-row"><span class="modal-label">kg MP/u real vs teórico</span><span class="modal-val">${fmt(kgMPReal,3)} kg <span class="badge ${dc}">${devMP>=0?'+':''}${devMP.toFixed(1)}% vs teo ${fmt(kgMPTeo,3)} kg</span></span></div>`:''}`;
-  }
-
-  const html=`
-    <div class="modal-overlay" onclick="if(event.target===this)cerrarModal()">
-      <div class="modal">
-        <button class="modal-close" onclick="cerrarModal()">×</button>
-        <div class="modal-title">${p.proteina} — ${p.tipo.charAt(0).toUpperCase()+p.tipo.slice(1)}</div>
-        <div class="modal-sub">${p.fecha} · ${p.responsable||'Sin responsable'} · Registrado por ${p.usuario||'—'}</div>
-        <div style="margin-bottom:8px"><span class="badge ${tl}">${p.tipo}</span></div>
-        ${detalleHTML}
-      </div>
-    </div>`;
-  const overlay=document.createElement('div');
-  overlay.id='modal-overlay';
-  overlay.innerHTML=html;
-  document.body.appendChild(overlay);
-}
-
-function cerrarModal(){
-  const m=document.getElementById('modal-overlay');
-  if(m)m.remove();
-}
-
 function checkPerm(tab){
   if(!CU)return false;
   return CU.perms[tab]!==false;
@@ -536,17 +346,13 @@ function initLoginSelect(){
     DB.users.map(u=>`<option value="${u.id}">${u.nombre}</option>`).join('');
 }
 
-function doLogin(uid_override){
-  const uid=uid_override||document.getElementById('login-user').value;
-  const pass=document.getElementById('login-pass')?.value||'';
+function doLogin(){
+  const uid=document.getElementById('login-user').value;
+  const pass=document.getElementById('login-pass').value;
   if(!uid){document.getElementById('login-error').textContent='Seleccioná un usuario.';return;}
   const user=DB.users.find(u=>u.id===uid);
-  if(!user||(uid_override?false:pass!==user.pass)){
-    if(document.getElementById('login-error'))document.getElementById('login-error').textContent='Contraseña incorrecta.';
-    return false;
-  }
+  if(!user||pass!==user.pass){document.getElementById('login-error').textContent='Contraseña incorrecta.';return;}
   CU=user;
-  sessionStorage.setItem('cu_id', user.id);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
   document.getElementById('user-label').textContent=user.nombre;
@@ -558,14 +364,10 @@ function doLogin(uid_override){
   const firstTab=document.querySelector('#main-tabs .tab:not([style*="none"])');
   if(firstTab)firstTab.click();
   checkAlertas();
-  startAutoRefresh();
-  return true;
 }
 
 function doLogout(){
   CU=null;
-  sessionStorage.removeItem('cu_id');
-  stopAutoRefresh();
   document.getElementById('main-screen').style.display='none';
   document.getElementById('login-screen').style.display='block';
   document.getElementById('login-pass').value='';
@@ -586,7 +388,7 @@ function renderTab(t){
   checkAlertas();
   ({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,
     stock:renderStock,ventas:renderVentas,balance:renderBalance,
-    config:renderConfig,calidad:renderCalidad,admin:renderAdmin,proveedores:renderProveedores}[t]||function(){})();
+    config:renderConfig,calidad:renderCalidad,admin:renderAdmin}[t]||function(){})();
 }
 
 // ============================================================
@@ -630,13 +432,10 @@ function renderResumen(){
   const vents=DB.ventas.filter(ff);
   const cal=DB.calidad.filter(ff);
   const totalIn=ing.reduce((a,r)=>a+r.kg_bruto,0);
-  const limpiezas=proc.filter(p=>p.tipo==='limpieza');
-  const totalLimpIn=limpiezas.reduce((a,p)=>a+p.kg_in,0);
-  const totalDesp=limpiezas.reduce((a,p)=>a+p.kg_desperdicio,0);
+  const totalDesp=proc.filter(p=>p.tipo==='limpieza').reduce((a,p)=>a+p.kg_desperdicio,0);
   const totalMerma=proc.filter(p=>p.tipo==='coccion').reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
   const totalVU=vents.reduce((a,v)=>a+v.unidades,0);
-  // Rendimiento calculado desde kg_in real de limpiezas (no desde ingresos registrados)
-  const rendGlobal=totalLimpIn>0?((totalLimpIn-totalDesp)/totalLimpIn*100):0;
+  const rendGlobal=totalIn>0?((totalIn-totalDesp)/totalIn*100):0;
   const totalPT=Object.values(DB.pt).reduce((a,v)=>a+v,0);
   const totalCaidas=cal.reduce((a,r)=>a+r.caidas,0);
   const totalPedidos=cal.reduce((a,r)=>a+r.pedidos,0);
@@ -703,10 +502,10 @@ function renderResumen(){
   <div style="font-size:12px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Producción</div>
   <div class="kgrid">
     <div class="kcard ${rendGlobal>=70?'ok':rendGlobal>=55?'warn':'danger'}">
-      <div class="klabel">Rendimiento limpieza</div><div class="kval">${totalLimpIn>0?rendGlobal.toFixed(1)+'%':'—'}</div><div class="ksub">neto / bruto procesado</div>
+      <div class="klabel">Rendimiento limpieza</div><div class="kval">${rendGlobal.toFixed(1)}%</div><div class="ksub">neto / bruto</div>
     </div>
-    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">${totalLimpIn>0?'procesado: '+fmt(totalLimpIn,1)+' kg':'sin limpiezas'}</div></div>
-    <div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">${totalLimpIn>0?(totalDesp/totalLimpIn*100).toFixed(1):0}% del procesado</div></div>
+    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">período</div></div>
+    <div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">${totalIn>0?(totalDesp/totalIn*100).toFixed(1):0}%</div></div>
     <div class="kcard warn"><div class="klabel">Merma cocción</div><div class="kval">${fmt(totalMerma,1)} kg</div><div class="ksub">en proceso</div></div>
     <div class="kcard ok"><div class="klabel">Stock terminado</div><div class="kval">${totalPT}</div><div class="ksub">unidades</div></div>
     <div class="kcard"><div class="klabel">Unidades vendidas</div><div class="kval">${totalVU}</div><div class="ksub">período</div></div>
@@ -735,43 +534,24 @@ function renderResumen(){
 
   <div class="card">
     <div class="ctitle">Rendimientos reales vs teóricos</div>
-    <div style="overflow-x:auto"><table>
-      <thead><tr>
-        <th>Proteína</th>
-        <th style="background:#f7f5ef">Kg ingresado</th>
-        <th style="background:#f7f5ef">Kg procesado</th>
-        <th style="background:#fdf0f0">Desperdicio</th>
-        <th style="background:#fdf5e8">Merma cocción</th>
-        <th style="background:#edf7f2">Neto útil</th>
-        <th style="background:#eef3fb">Rend. limp. teórico</th>
-        <th style="background:#eef3fb">Rend. limp. real</th>
-        <th style="background:#f2eefb">Rend. coc. teórico</th>
-        <th style="background:#f2eefb">Rend. coc. real</th>
-      </tr></thead>
-      <tbody>${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>{
-        const kgIng=DB.ingresos.filter(r=>r.proteina===prot&&ff(r)).reduce((a,r)=>a+r.kg_bruto,0);
-        const limpProt=proc.filter(p=>p.proteina===prot&&p.tipo==='limpieza');
-        const cocProt=proc.filter(p=>p.proteina===prot&&p.tipo==='coccion');
-        const kgProc=limpProt.reduce((a,p)=>a+p.kg_in,0);
-        const kgDesp=limpProt.reduce((a,p)=>a+p.kg_desperdicio,0);
-        const kgMerma=cocProt.reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
-        const kgNeto=kgProc-kgDesp-kgMerma;
-        const dcL=devLimp===null?'bgray':Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger';
-        const dcC=devCoc===null?'bgray':Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger';
-        return `<tr style="border-bottom:2px solid #f0efe8">
-          <td style="font-weight:600;color:#1a1a1a">${prot}</td>
-          <td style="background:#fafaf7">${kgIng>0?fmt(kgIng,2)+' kg':'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#fafaf7">${kgProc>0?fmt(kgProc,2)+' kg':'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#fffaf9">${kgDesp>0?`<span style="color:#a32d2d;font-weight:500">${fmt(kgDesp,2)} kg</span><br><span style="font-size:10px;color:#c0504d">${kgProc>0?(kgDesp/kgProc*100).toFixed(1):0}%</span>`:'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#fffdf5">${kgMerma>0?`<span style="color:#854f0b;font-weight:500">${fmt(kgMerma,2)} kg</span>`:'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#f5fbf7">${kgNeto>0?`<span style="color:#0f6e56;font-weight:600">${fmt(kgNeto,2)} kg</span>`:'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#f5f8fd;color:#4a6fa5">${rendLimpTeo?(rendLimpTeo*100).toFixed(1)+'%':'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#f5f8fd">${rendLimpReal!==null?`<span style="font-weight:500">${(rendLimpReal*100).toFixed(1)}%</span> <span class="badge ${dcL}">${devLimp>=0?'+':''}${devLimp.toFixed(1)}%</span>`:'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#f8f5fd;color:#6b5aad">${rendCocTeo?(rendCocTeo*100).toFixed(1)+'%':'<span style="color:#bbb">—</span>'}</td>
-          <td style="background:#f8f5fd">${rendCocReal!==null?`<span style="font-weight:500">${(rendCocReal*100).toFixed(1)}%</span> <span class="badge ${dcC}">${devCoc>=0?'+':''}${devCoc.toFixed(1)}%</span>`:'<span style="color:#bbb">—</span>'}</td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>
+    ${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>`
+    <div style="padding:8px 0;border-bottom:1px solid #f0efe8">
+      <div style="font-size:12px;font-weight:500;margin-bottom:6px">${prot}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div>
+          <span style="font-size:10px;color:#888;text-transform:uppercase">Limpieza</span><br>
+          <span style="font-size:11px">Teórico: <strong>${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%</strong></span>
+          ${rendLimpReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendLimpReal*100).toFixed(1)}%</strong></span>
+          <span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
+        </div>
+        ${rendCocTeo?`<div>
+          <span style="font-size:10px;color:#888;text-transform:uppercase">Cocción</span><br>
+          <span style="font-size:11px">Teórico: <strong>${(rendCocTeo*100).toFixed(1)}%</strong></span>
+          ${rendCocReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendCocReal*100).toFixed(1)}%</strong></span>
+          <span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
+        </div>`:''}
+      </div>
+    </div>`).join('')}
   </div>
 
   </div>`;
@@ -864,13 +644,7 @@ function renderIngreso(){
       <div class="fg"><label>Proteína</label><select id="i-prot">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div>
       <div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div>
-      <div class="fg"><label>Proveedor</label>
-          <select id="i-prov">
-            <option value="">Sin proveedor</option>
-            ${(DB.proveedores||[]).map(p=>`<option value="${p}">${p}</option>`).join('')}
-            <option value="__otro__">Otro (escribir)</option>
-          </select>
-        </div>
+      <div class="fg"><label>Proveedor</label><input type="text" id="i-prov" placeholder="Opcional"></div>
     </div>
     <button class="btn btn-primary" onclick="addIngreso()">+ Agregar ingreso</button>
   </div>
@@ -892,8 +666,7 @@ function addIngreso(){
   const proteina=document.getElementById('i-prot').value;
   const kg=parseFloat(document.getElementById('i-kg').value);
   const costo=parseFloat(document.getElementById('i-costo').value)||0;
-  let prov=document.getElementById('i-prov').value;
-  if(prov==='__otro__'){prov=prompt('Ingresá el nombre del proveedor:')||'';}
+  const prov=document.getElementById('i-prov').value;
   if(!fecha||isNaN(kg)||kg<=0){alert('Completá fecha, proteína y kg bruto.');return;}
   DB.ingresos.push({fecha,proteina,kg_bruto:kg,costo_kg:costo,proveedor:prov,usuario:CU.nombre,id:Date.now()});
   const mpSS=DB.substocks[proteina]?.find(s=>s.estado==='mp');
@@ -929,8 +702,8 @@ function renderProceso(){
       if(p.tipo==='coccion'&&teo&&teo.coccion_pct)teoVal=teo.coccion_pct;
       const dev=teoVal?rend-teoVal:null;
       const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
-      const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':'bteal';
-      return `<tr class="tr-clickable" onclick="showProcesoDetalle(${idx})">
+      const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
+      return `<tr>
         <td>${p.fecha}</td><td>${p.proteina}</td>
         <td><span class="badge ${tl}">${p.tipo}</span></td>
         <td style="color:#888;font-size:11px">${p.origen||'—'}</td>
@@ -940,7 +713,7 @@ function renderProceso(){
         <td>${p.tipo==='armado'?(p.unidades||0)+' u.':rend.toFixed(1)+'%'}</td>
         <td><span class="badge ${dc}">${dev!==null?(dev>=0?'+':'')+dev.toFixed(1)+'%':'—'}</span></td>
         <td style="color:#888">${p.responsable||'-'}</td>
-        <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="event.stopPropagation();delProceso(${idx})">x</button>`:''}</td>
+        <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delProceso(${idx})">x</button>`:''}</td>
       </tr>`;
     }).join('');
 
@@ -950,7 +723,8 @@ function renderProceso(){
   <div class="modo-tabs">
     <button class="mtab${activeModo==='limpieza'?' active':''}" onclick="setModo('limpieza',this)">1. Limpieza</button>
     <button class="mtab${activeModo==='coccion'?' active':''}" onclick="setModo('coccion',this)">2. Cocción</button>
-    <button class="mtab${activeModo==='armado'?' active':''}" onclick="setModo('armado',this)">3. Armado</button>
+    <button class="mtab${activeModo==='apertura'?' active':''}" onclick="setModo('apertura',this)">3. Apertura de bolsa</button>
+    <button class="mtab${activeModo==='armado'?' active':''}" onclick="setModo('armado',this)">4. Armado</button>
   </div>
   <div id="proceso-form"></div>
   <div class="card">
@@ -1027,47 +801,57 @@ function renderProcesoForm(){
       <button class="btn btn-primary" onclick="addProcesoCoccion()">+ Registrar cocción</button>
     </div>`;
 
-  } else if(activeModo==='armado'){
-    const prodsProt=DB.productos.filter(p=>p.proteina===activeProt);
-    if(prodsProt.length===0){frm.innerHTML=`<div class="card"><div class="info-box">No hay productos definidos para esta proteína.</div></div>`;return;}
-    const primerProd=prodsProt[0];
-    const primerOrigen=primerProd.substock;
-    const primerOrigenDef=findSSdef(primerOrigen);
-    const primerEsUnidad=primerOrigenDef?.type==='u';
+  } else if(activeModo==='apertura'){
+    const subsCocidos=subs.filter(s=>s.estado==='cocido'&&s.type==='kg');
+    if(subsCocidos.length===0){
+      frm.innerHTML=`<div class="card"><div class="info-box">Esta proteína no tiene sub-stocks cocidos en kg para registrar apertura.</div></div>`;return;
+    }
     frm.innerHTML=`<div class="card">
-      <div class="info-box">El origen se determina automáticamente según el producto seleccionado.</div>
+      <div class="info-box">Registrá la merma real al abrir las bolsas. Solo abrís las bolsas que vas a usar — el resto queda en stock.</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
+        <div class="fg"><label>Sub-stock (bolsas cocidas)</label>
+          <select id="pf-origen">${subsCocidos.map(s=>`<option value="${s.key}">${s.label} — ${fmt(getSS(s.key),2)} kg disponibles</option>`).join('')}</select>
+        </div>
+        ${respField}
+      </div>
+      <div class="frow">
+        <div class="fg" style="max-width:140px"><label>Kg que entró a las bolsas</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcApertura()"></div>
+        <div class="fg" style="max-width:140px"><label>Kg reales al abrir</label><input type="number" id="pf-kgout" placeholder="0.00" step="0.01" oninput="calcApertura()"></div>
+      </div>
+      <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
+      <button class="btn btn-primary" onclick="addProcesoApertura()">+ Registrar apertura</button>
+    </div>`;
+
+  } else if(activeModo==='armado'){
+    const subsCocidos=subs.filter(s=>s.estado==='cocido'||s.estado==='crudo');
+    const prodsProt=DB.productos.filter(p=>p.proteina===activeProt);
+    if(prodsProt.length===0){frm.innerHTML=`<div class="card"><div class="info-box">No hay productos definidos para esta proteína.</div></div>`;return;}
+    frm.innerHTML=`<div class="card">
+      <div class="info-box">Tomás de un sub-stock y generás unidades de producto terminado.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
+        <div class="fg"><label>Origen</label>
+          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
+        </div>
         <div class="fg"><label>Producto a generar</label>
-          <select id="pf-producto" onchange="onArmadoProductoChange()">${prodsProt.map(p=>{
+          <select id="pf-producto" onchange="onProductoArmadoChange()">${prodsProt.map(p=>{
             const kgTeo=calcKgMPTeorico(p);
             return `<option value="${p.ptKey}" data-substock="${p.substock}">${p.nombre} (porción: ${fmt(p.kgPorcion,3)} kg | MP teo: ${fmt(kgTeo,3)} kg)</option>`;
           }).join('')}</select>
         </div>
         ${respField}
       </div>
-      <div class="frow" style="align-items:center">
-        <div class="fg"><label>Sub-stock origen (automático)</label>
-          <div id="pf-origen-display" style="padding:7px 9px;font-size:12px;border-radius:8px;border:1px solid #d5d5d0;background:#f0efe8;color:#444">
-            ${primerOrigenDef?.label||primerOrigen} — <strong>${fmtSS(primerOrigen,getSS(primerOrigen))}</strong>
-          </div>
-          <input type="hidden" id="pf-origen" value="${primerOrigen}">
-          <input type="hidden" id="pf-origen-tipo" value="${primerEsUnidad?'u':'kg'}">
-        </div>
-      </div>
-      <div class="frow" id="pf-inputs-armado">
-        ${primerEsUnidad
-          ?`<div class="fg" style="max-width:150px"><label>Unidades usadas del sub-stock</label><input type="number" id="pf-kgin" placeholder="0" step="1" oninput="calcArmado()"></div>
-            <div class="fg" style="max-width:150px"><label>Unidades de PT generadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
-            <div class="fg" style="max-width:120px"><label>Unidades sobrantes</label><input type="number" id="pf-recorte" placeholder="0" step="1"></div>`
-          :`<div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
-            <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
-            <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>`
-        }
+      <div class="frow">
+        <div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
       </div>
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button>
     </div>`;
+    // Auto-seleccionar sub-stock del primer producto
+    setTimeout(()=>onProductoArmadoChange(),0);
   }
 }
 
@@ -1089,33 +873,6 @@ function calcCoccion(){
   prev.innerHTML=`Rendimiento: <strong>${ki>0?(ko/ki*100).toFixed(1):'-'}%</strong>${teo?.coccion_pct?` | Teórico: <strong>${teo.coccion_pct}%</strong>`:''} | Merma: <strong>${fmt(ki-ko,2)} kg</strong>`;
 }
 
-function onArmadoProductoChange(){
-  const sel=document.getElementById('pf-producto');if(!sel)return;
-  const ptKey=sel.value;
-  const prod=DB.productos.find(p=>p.ptKey===ptKey);if(!prod)return;
-  const origen=prod.substock;
-  const origenDef=findSSdef(origen);
-  const esUnidad=origenDef?.type==='u';
-  const display=document.getElementById('pf-origen-display');
-  const hidden=document.getElementById('pf-origen');
-  const hiddenTipo=document.getElementById('pf-origen-tipo');
-  if(display)display.innerHTML=`${origenDef?.label||origen} — <strong>${fmtSS(origen,getSS(origen))}</strong>`;
-  if(hidden)hidden.value=origen;
-  if(hiddenTipo)hiddenTipo.value=esUnidad?'u':'kg';
-  // Regenerar inputs según tipo
-  const inputsDiv=document.getElementById('pf-inputs-armado');
-  if(inputsDiv){
-    inputsDiv.innerHTML=esUnidad
-      ?`<div class="fg" style="max-width:150px"><label>Unidades usadas del sub-stock</label><input type="number" id="pf-kgin" placeholder="0" step="1" oninput="calcArmado()"></div>
-         <div class="fg" style="max-width:150px"><label>Unidades de PT generadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
-         <div class="fg" style="max-width:120px"><label>Unidades sobrantes</label><input type="number" id="pf-recorte" placeholder="0" step="1"></div>`
-      :`<div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
-         <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
-         <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>`;
-  }
-  calcArmado();
-}
-
 function updateArmadoSalidaLabel(){
   // Check if destination product uses units or kg
   const sel=document.getElementById('pf-producto');
@@ -1134,27 +891,71 @@ function updateArmadoSalidaLabel(){
   }
 }
 
+function onProductoArmadoChange(){
+  // Auto-seleccionar el sub-stock que corresponde al producto elegido
+  const sel=document.getElementById('pf-producto');
+  if(!sel) return;
+  const opt=sel.options[sel.selectedIndex];
+  const substock=opt?.dataset?.substock;
+  if(substock){
+    const origenSel=document.getElementById('pf-origen');
+    if(origenSel){
+      // Buscar la opción que tenga ese value
+      for(let i=0;i<origenSel.options.length;i++){
+        if(origenSel.options[i].value===substock){
+          origenSel.selectedIndex=i;
+          break;
+        }
+      }
+    }
+  }
+  calcArmado();
+}
+
+function calcApertura(){
+  const ki=parseFloat(document.getElementById('pf-kgin')?.value)||0;
+  const ko=parseFloat(document.getElementById('pf-kgout')?.value)||0;
+  const prev=document.getElementById('pf-prev');if(!prev)return;
+  const merma=ki-ko;
+  const pct=ki>0?(merma/ki*100):0;
+  const teo=DB.teorico[activeProt];
+  const teoPct=teo?.coccion_pct?(100-teo.coccion_pct):null;
+  prev.innerHTML=`Merma real: <strong style="color:${merma<0?'#a32d2d':'#1a1a1a'}">${fmt(merma,3)} kg</strong> (${pct.toFixed(1)}%)${teoPct?` | Merma teórica: <strong>${teoPct.toFixed(1)}%</strong>`:''}
+  | Stock después: <strong>${fmt(getSS(document.getElementById('pf-origen')?.value||'')-ki+ko,2)} kg</strong>`;
+}
+
+function addProcesoApertura(){
+  const fecha=document.getElementById('pf-fecha').value;
+  const origen=document.getElementById('pf-origen').value;
+  const kgin=parseFloat(document.getElementById('pf-kgin').value);
+  const kgout=parseFloat(document.getElementById('pf-kgout').value);
+  const resp=document.getElementById('pf-resp')?.value||'';
+  if(!fecha||isNaN(kgin)||isNaN(kgout)||kgin<=0){alert('Completá todos los campos.');return;}
+  if(kgout>kgin){alert('Los kg reales no pueden ser mayores a los que entraron.');return;}
+  if(getSS(origen)<kgin){if(!confirm(`Stock insuficiente: hay ${fmt(getSS(origen),2)} kg. ¿Continuás?`))return;}
+  const ssO=findSSdef(origen);
+  const merma=kgin-kgout;
+  // Descuenta kgin del sub-stock, suma kgout (el neto es restar la merma)
+  setSS(origen, getSS(origen)-kgin+kgout);
+  DB.procesos.push({fecha,proteina:activeProt,tipo:'apertura',kg_in:kgin,kg_out:kgout,kg_desperdicio:merma,
+    origen:ssO?.label||'',destino:ssO?.label||'',substock_origen:origen,substock_destino:origen,
+    responsable:resp,usuario:CU.nombre,id:Date.now()});
+  saveDB();renderProceso();checkAlertas();
+}
+
 function calcArmado(){
   const ki=parseFloat(document.getElementById('pf-kgin')?.value)||0;
   const uni=parseInt(document.getElementById('pf-unidades')?.value)||0;
   const sel=document.getElementById('pf-producto');if(!sel)return;
   const prod=DB.productos.find(p=>p.ptKey===sel.value);
   const prev=document.getElementById('pf-prev');if(!prev||!prod||!ki||!uni)return;
-  const esUnidad=document.getElementById('pf-origen-tipo')?.value==='u';
-  if(esUnidad){
-    // Sub-stock en unidades: 1 unidad sub-stock → 1 unidad PT, sin conversión kg
-    const sobrante=Math.max(0,ki-uni);
-    prev.innerHTML=`Usás <strong>${ki} u.</strong> del sub-stock → <strong>${uni} u.</strong> de PT | Sobrante: <strong>${sobrante} u.</strong>`;
-    document.getElementById('pf-recorte').value=sobrante;
-  } else {
-    const ku=(prod.kgPorcion*uni).toFixed(3);
-    const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
-    const kgMPTeo=calcKgMPTeorico(prod);
-    const kgMPReal=ki/uni;
-    const devMP=((kgMPReal-kgMPTeo)/kgMPTeo*100);
-    prev.innerHTML=`Kg cocido teórico para ${uni} u.: <strong>${ku} kg</strong> | Recorte est.: <strong>${rec} kg</strong> | kg MP/u real: <strong>${fmt(kgMPReal,3)}</strong> vs teo: <strong>${fmt(kgMPTeo,3)}</strong> <span class="badge ${Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger'}">${devMP>=0?'+':''}${devMP.toFixed(1)}%</span>`;
-    document.getElementById('pf-recorte').value=rec;
-  }
+  const ku=(prod.kgPorcion*uni).toFixed(3);
+  const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
+  const kgMPTeo=calcKgMPTeorico(prod);
+  const kgMPReal=ki/uni;
+  const devMP=((kgMPReal-kgMPTeo)/kgMPTeo*100);
+  prev.innerHTML=`Kg cocido teórico para ${uni} u.: <strong>${ku} kg</strong> | Recorte est.: <strong>${rec} kg</strong> | kg MP/u real: <strong>${fmt(kgMPReal,3)}</strong> vs teo: <strong>${fmt(kgMPTeo,3)}</strong> <span class="badge ${Math.abs(devMP)<5?'bok':Math.abs(devMP)<15?'bwarn':'bdanger'}">${devMP>=0?'+':''}${devMP.toFixed(1)}%</span>`;
+  if(!document.getElementById('pf-recorte').value)document.getElementById('pf-recorte').value=rec;
 }
 
 function addProcesoLimpieza(){
@@ -1196,25 +997,18 @@ function addProcesoArmado(){
   const fecha=document.getElementById('pf-fecha').value;
   const origen=document.getElementById('pf-origen').value;
   const ptKey=document.getElementById('pf-producto').value;
-  const esUnidad=document.getElementById('pf-origen-tipo')?.value==='u';
-  const kgin=esUnidad
-    ? parseInt(document.getElementById('pf-kgin').value)
-    : parseFloat(document.getElementById('pf-kgin').value);
+  const kgin=parseFloat(document.getElementById('pf-kgin').value);
   const unidades=parseInt(document.getElementById('pf-unidades').value);
-  const recorte=esUnidad
-    ? parseInt(document.getElementById('pf-recorte').value)||0
-    : parseFloat(document.getElementById('pf-recorte').value)||0;
+  const recorte=parseFloat(document.getElementById('pf-recorte').value)||0;
   const resp=document.getElementById('pf-resp')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(unidades)||kgin<=0||unidades<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);
   if(getSS(origen)<kgin){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
   setSS(origen,getSS(origen)-kgin);
   setPT(ptKey,getPT(ptKey)+unidades);
-  // kg_in y kg_out se guardan en las unidades del sub-stock (u. o kg según tipo)
-  DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',
-    kg_in:kgin, kg_out:kgin-recorte, kg_desperdicio:recorte,
-    unidades, origen:ssO?.label||'', destino:ptKey, substock_origen:origen,
-    es_unidad:esUnidad, responsable:resp, usuario:CU.nombre, id:Date.now()});
+  DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',kg_in:kgin,kg_out:kgin-recorte,kg_desperdicio:recorte,
+    unidades,origen:ssO?.label||'',destino:ptKey,substock_origen:origen,
+    responsable:resp,usuario:CU.nombre,id:Date.now()});
   saveDB();renderProceso();checkAlertas();
 }
 
@@ -1229,6 +1023,10 @@ function delProceso(i){
   if(p.tipo==='coccion'){
     setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);
     setSS(p.substock_destino,Math.max(0,getSS(p.substock_destino)-p.kg_out));
+  }
+  if(p.tipo==='apertura'){
+    // Revierte: devuelve la merma al sub-stock (vuelve al peso original pre-apertura)
+    setSS(p.substock_origen, getSS(p.substock_origen)+p.kg_in-p.kg_out);
   }
   if(p.tipo==='armado'){
     setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);
@@ -1285,28 +1083,7 @@ function renderStock(){
   el.innerHTML=html;
 }
 
-function editSS(k,v){
-  if(CU.role!=='gerente')return;
-  setSS(k,parseFloat(v));
-  saveDB();
-  // Si el form de proceso está abierto, actualizar el display del origen inmediatamente
-  const origenHidden=document.getElementById('pf-origen');
-  if(origenHidden&&origenHidden.value===k){
-    const origenDef=findSSdef(k);
-    const display=document.getElementById('pf-origen-display');
-    if(display)display.innerHTML=`${origenDef?.label||k} — <strong>${fmtSS(k,getSS(k))}</strong>`;
-  }
-  // También actualizar selects de cocción que muestren este sub-stock
-  const origenSelect=document.getElementById('pf-origen');
-  if(origenSelect&&origenSelect.tagName==='SELECT'){
-    Array.from(origenSelect.options).forEach(opt=>{
-      if(opt.value===k){
-        const def=findSSdef(k);
-        opt.text=`${def?.label||k} — ${fmtSS(k,getSS(k))}`;
-      }
-    });
-  }
-}
+function editSS(k,v){if(CU.role!=='gerente')return;setSS(k,parseFloat(v));saveDB();}
 function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB();}
 
 // ============================================================
@@ -1317,7 +1094,20 @@ function renderVentas(){
   const opts=DB.productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');
   el.innerHTML=`
   <p class="sechead">Registrar ventas</p>
+
   <div class="card">
+    <div class="ctitle">Importar pedidos desde planilla</div>
+    <div class="info-box">Leé los pedidos de una fecha específica desde la planilla de stock y registralos en el tablero de una sola vez.</div>
+    <div class="frow">
+      <div class="fg" style="max-width:120px"><label>Fecha pedido</label><input type="text" id="imp-fecha" placeholder="Ej: 21-4"></div>
+      <div class="fg" style="max-width:160px"><label>Fecha venta (para registrar)</label><input type="date" id="imp-fecha-registro" value="${today()}"></div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="importarPedidos()">🔍 Leer planilla</button>
+    </div>
+    <div id="imp-preview"></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Registrar venta manual</div>
     <div class="frow">
       <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="v-fecha" value="${today()}"></div>
       <div class="fg"><label>Producto</label><select id="v-prod" onchange="updateVentaInfo()">${opts}</select></div>
@@ -1342,6 +1132,105 @@ function renderVentas(){
     </table></div>
   </div>`;
   updateVentaInfo();
+}
+
+// ID del Google Sheet de pedidos
+const SHEET_ID = '1ZpXsK-TYCjoSNYKrwh5EGjBuVsJqY-fxSy0kvSHt9oY';
+
+async function importarPedidos(){
+  const fechaFiltro = document.getElementById('imp-fecha').value.trim();
+  const fechaReg = document.getElementById('imp-fecha-registro').value;
+  const prev = document.getElementById('imp-preview');
+  if(!fechaFiltro){alert('Ingresá la fecha del pedido (ej: 21-4)');return;}
+  prev.innerHTML=`<div style="color:#888;font-size:12px;padding:8px 0">Leyendo planilla...</div>`;
+
+  // Buscar la pestaña que corresponde a esa fecha
+  const sheetName = `pedidos ${fechaFiltro}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+
+  try{
+    const r = await fetch(url);
+    const text = await r.text();
+    // Google devuelve JSONP, hay que extraer el JSON
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const rows = json.table.rows;
+
+    // Agrupar por producto: columna A=fecha(0), B=cliente(1), C=ID(2), D=BASE(3), E=CANTIDAD(4)
+    const totales = {};
+    rows.forEach(row=>{
+      if(!row.c||!row.c[0]||!row.c[3]||!row.c[4]) return;
+      const fechaCell = row.c[0].v?.toString().trim();
+      if(!fechaCell) return;
+      const prod = row.c[3].v?.toString().trim();
+      const cant = parseInt(row.c[4].v)||0;
+      if(!prod||cant<=0) return;
+      totales[prod] = (totales[prod]||0)+cant;
+    });
+
+    if(Object.keys(totales).length===0){
+      prev.innerHTML=`<div class="alert-row">No se encontraron filas para la fecha "${fechaFiltro}". Verificá que el nombre de la pestaña sea exactamente "pedidos ${fechaFiltro}".</div>`;
+      return;
+    }
+
+    // Cruzar con productos del tablero via stockNombre
+    const matcheados = [];
+    const noMatcheados = [];
+    Object.entries(totales).forEach(([stockNombre, cant])=>{
+      const prod = DB.productos.find(p=>p.stockNombre && p.stockNombre.toLowerCase().trim()===stockNombre.toLowerCase().trim());
+      if(prod){
+        const stockActual = getPT(prod.ptKey);
+        matcheados.push({prod, cant, stockActual, stockNombre});
+      } else {
+        noMatcheados.push({stockNombre, cant});
+      }
+    });
+
+    // Guardar en window para confirmar después
+    window._importData = {matcheados, fechaReg};
+
+    prev.innerHTML=`
+    <div style="margin-top:12px">
+      ${matcheados.length>0?`
+      <div style="font-size:11px;font-weight:500;color:#0c447c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">✅ Productos que se van a registrar (${matcheados.length})</div>
+      <table style="margin-bottom:12px">
+        <thead><tr><th>Producto</th><th>Unidades</th><th>Stock actual</th><th>Stock después</th></tr></thead>
+        <tbody>${matcheados.map(({prod,cant,stockActual})=>{
+          const post=stockActual-cant;
+          return `<tr>
+            <td>${prod.nombre}</td><td><strong>${cant}</strong></td>
+            <td>${stockActual}</td>
+            <td><strong style="color:${post<0?'#a32d2d':post<=5?'#854f0b':'#0f6e56'}">${post}</strong>${post<0?' ⚠️':''}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      <button class="btn btn-primary" onclick="confirmarImport()">✅ Confirmar y registrar ${matcheados.length} productos</button>`:''}
+
+      ${noMatcheados.length>0?`
+      <div style="font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-top:12px;margin-bottom:6px">⚠️ Productos sin mapeo en el tablero (${noMatcheados.length})</div>
+      <div style="font-size:11px;color:#888">${noMatcheados.map(({stockNombre,cant})=>`<span style="display:inline-block;background:#f0efe8;border-radius:4px;padding:2px 8px;margin:2px">${stockNombre} (${cant}u)</span>`).join('')}</div>
+      <div style="font-size:11px;color:#888;margin-top:6px">Para mapearlos, agregá el "Nombre en planilla" en Configuración → Productos.</div>`:''}
+    </div>`;
+  }catch(e){
+    console.error(e);
+    prev.innerHTML=`<div class="alert-row">Error al leer la planilla. Verificá que sea pública (cualquiera con el link puede ver) y que la pestaña "pedidos ${fechaFiltro}" exista.</div>`;
+  }
+}
+
+function confirmarImport(){
+  const {matcheados, fechaReg} = window._importData||{};
+  if(!matcheados||matcheados.length===0) return;
+  matcheados.forEach(({prod,cant})=>{
+    const sp = getPT(prod.ptKey);
+    setPT(prod.ptKey, getPT(prod.ptKey)-cant);
+    const sa = getPT(prod.ptKey);
+    DB.ventas.push({fecha:fechaReg, producto:prod.nombre, unidades:cant,
+      usuario:CU.nombre, sp, sa, id:Date.now()+Math.random()});
+  });
+  saveDB();
+  window._importData = null;
+  alert(`✅ Se registraron ${matcheados.length} productos correctamente.`);
+  renderVentas();
+  checkAlertas();
 }
 
 function updateVentaInfo(){
@@ -1393,11 +1282,11 @@ function renderBalance(){
     const armado=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='armado');
     const kgDesp=limpieza.reduce((a,r)=>a+r.kg_desperdicio,0);
     const kgMerma=coccion.reduce((a,r)=>a+(r.kg_in-r.kg_out),0);
+    const kgMermaApertura=DB.procesos.filter(r=>r.proteina===prot&&r.tipo==='apertura').reduce((a,r)=>a+r.kg_desperdicio,0);
     const kgRecA=armado.reduce((a,r)=>a+r.kg_desperdicio,0);
     const subsKg=DB.substocks[prot].filter(s=>s.type==='kg').reduce((a,s)=>a+getSS(s.key),0);
     const kgVendido=DB.ventas.reduce((a,v)=>{const p=DB.productos.find(pp=>pp.nombre===v.producto);return p&&p.proteina===prot?a+(calcKgMPTeorico(p)*v.unidades):a;},0);
-    const kgEnPT=armado.reduce((a,r)=>a+r.kg_out,0);
-    const totalExpl=kgDesp+kgMerma+kgRecA+subsKg+kgVendido+kgEnPT;
+    const totalExpl=kgDesp+kgMerma+kgMermaApertura+kgRecA+subsKg+kgVendido;
     const diff=kgBruto-totalExpl;
     const balanced=kgBruto===0||Math.abs(diff)<0.5;
     html+=`<div class="card">
@@ -1409,9 +1298,9 @@ function renderBalance(){
         <div style="padding:8px;background:#f0efe8;border-radius:8px"><div style="font-size:10px;color:#888;margin-bottom:2px">Ingreso bruto</div><strong>${fmt(kgBruto,2)} kg</strong></div>
         <div style="padding:8px;background:#fcebeb;border-radius:8px"><div style="font-size:10px;color:#791f1f;margin-bottom:2px">Desperdicio</div><strong style="color:#791f1f">${fmt(kgDesp,2)} kg</strong></div>
         <div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">${fmt(kgMerma,2)} kg</strong></div>
+        ${kgMermaApertura>0?`<div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Merma apertura bolsa</div><strong style="color:#633806">${fmt(kgMermaApertura,2)} kg</strong></div>`:''}
         ${kgRecA>0?`<div style="padding:8px;background:#faeeda;border-radius:8px"><div style="font-size:10px;color:#633806;margin-bottom:2px">Recorte armado</div><strong style="color:#633806">${fmt(kgRecA,2)} kg</strong></div>`:''}
         <div style="padding:8px;background:#eeedfe;border-radius:8px"><div style="font-size:10px;color:#3c3489;margin-bottom:2px">En sub-stocks kg</div><strong style="color:#3c3489">${fmt(subsKg,2)} kg</strong></div>
-        <div style="padding:8px;background:#e6f1fb;border-radius:8px"><div style="font-size:10px;color:#0c447c;margin-bottom:2px">En PT stock (kg cocido)</div><strong style="color:#0c447c">${fmt(kgEnPT,3)} kg</strong></div>
         <div style="padding:8px;background:#e1f5ee;border-radius:8px"><div style="font-size:10px;color:#085041;margin-bottom:2px">Vendido (kg MP teo)</div><strong style="color:#085041">${fmt(kgVendido,3)} kg</strong></div>
       </div>
       ${!balanced&&kgBruto>0?`<div style="margin-top:8px;font-size:11px;color:${Math.abs(diff)<2?'#633806':'#791f1f'}">Diferencia sin explicar: ${fmt(diff,2)} kg</div>`:''}
@@ -1498,12 +1387,16 @@ function renderConfigProductos(){
       </div>
       <div class="fg"><label>Clave PT (única)</label><input type="text" id="np-ptkey" placeholder="Ej: Pollo curry 350g"></div>
     </div>
+    <div class="frow">
+      <div class="fg"><label>Nombre en planilla de stock <span style="font-size:10px;color:#888">(para importar pedidos)</span></label>
+        <input type="text" id="np-stocknombre" placeholder="Ej: Curry de pollo - 350g"></div>
+    </div>
     <button class="btn btn-primary" onclick="addProducto()">+ Agregar producto</button>
   </div>
   <div class="card">
     <div class="ctitle">Productos existentes</div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Nombre</th><th>Proteína</th><th>Porción kg</th><th>kg MP teórico/u</th><th>Sub-stock</th><th>Cadena</th><th></th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Proteína</th><th>Porción kg</th><th>kg MP teórico/u</th><th>Sub-stock</th><th>Cadena</th><th>Nombre en planilla</th><th></th></tr></thead>
       <tbody>${DB.productos.map((p,i)=>{
         const kgTeo=calcKgMPTeorico(p);
         return `<tr>
@@ -1511,6 +1404,7 @@ function renderConfigProductos(){
           <td><strong>${fmt(kgTeo,3)}</strong> <span style="font-size:10px;color:#888">kg MP</span></td>
           <td style="color:#888;font-size:11px">${p.substock}</td>
           <td style="color:#888;font-size:11px">${(p.chain||[]).join('→')}</td>
+          <td style="color:${p.stockNombre?'#444':'#ccc'};font-size:11px">${p.stockNombre||'— sin mapeo'}</td>
           <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delProducto(${i})">x</button>`:''}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -1525,9 +1419,10 @@ function addProducto(){
   const substock=document.getElementById('np-substock').value;
   const chainStr=document.getElementById('np-chain').value;
   const ptKey=document.getElementById('np-ptkey').value.trim();
+  const stockNombre=document.getElementById('np-stocknombre').value.trim();
   if(!nombre||!ptKey||isNaN(kgPorcion)||kgPorcion<=0){alert('Completá todos los campos.');return;}
   const chain=chainStr.split(',');
-  DB.productos.push({nombre,proteina,kgPorcion,substock,chain,ptKey});
+  DB.productos.push({nombre,proteina,kgPorcion,substock,chain,ptKey,stockNombre});
   if(DB.pt[ptKey]===undefined)DB.pt[ptKey]=0;
   saveDB();renderConfigProductos();
 }
@@ -1543,25 +1438,10 @@ function delProducto(i){
 // ============================================================
 function renderAdmin(){
   if(CU.role!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','proveedores'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
-  <div class="card">
-    <div class="ctitle">Proveedores</div>
-    <div class="info-box">Los proveedores cargados acá aparecen en el desplegable al registrar ingresos de MP y se usan en el análisis comparativo.</div>
-    <div class="frow">
-      <div class="fg"><label>Nombre del proveedor</label><input type="text" id="prov-nombre" placeholder="Ej: Los Hermanos"></div>
-      <button class="btn btn-primary" style="align-self:flex-end" onclick="addProveedor()">+ Agregar</button>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-      ${(DB.proveedores||[]).length===0?'<span style="color:#888;font-size:12px">Sin proveedores cargados.</span>':
-        (DB.proveedores||[]).map((e,i)=>`<div style="display:flex;align-items:center;gap:6px;background:#f0efe8;border-radius:99px;padding:4px 12px;font-size:12px">
-          ${e} <button class="btn-sm" onclick="delProveedor(${i})" style="padding:0 4px;font-size:12px;border:none">×</button>
-        </div>`).join('')}
-    </div>
-  </div>
-
   <div class="card">
     <div class="ctitle">Empleados</div>
     <div class="info-box">Los empleados que cargues acá aparecen como opciones en el campo "Responsable" de cada proceso.</div>
@@ -1633,7 +1513,7 @@ function addUser(){
   const role=document.getElementById('nu-role').value;
   if(!nombre||!id||!pass){alert('Completá todos los campos.');return;}
   if(DB.users.find(u=>u.id===id)){alert('Ya existe un usuario con ese ID.');return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','proveedores'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
   const perms={admin:false};
   TABS.forEach(t=>perms[t]=role==='gerente'?true:['resumen','ingreso','proceso'].includes(t));
   DB.users.push({id,nombre,pass,role,perms});
@@ -1658,124 +1538,20 @@ function addEmpleado(){
   const nombre=document.getElementById('emp-nombre').value.trim();
   if(!nombre){alert('Ingresá un nombre.');return;}
   if(!DB.empleados)DB.empleados=[];
-  if(!DB.proveedores)DB.proveedores=[];
   if(DB.empleados.includes(nombre)){alert('Ya existe ese empleado.');return;}
   DB.empleados.push(nombre);saveDB();renderAdmin();
 }
-// ============================================================
-// PROVEEDORES
-// ============================================================
-function renderProveedores(){
-  const el=document.getElementById('proveedores');
-  const prots=Object.keys(DB.substocks);
-
-  // Agrupar ingresos por proteína → proveedor
-  const data={};
-  prots.forEach(prot=>{
-    data[prot]={};
-    DB.ingresos.filter(r=>r.proteina===prot&&r.proveedor).forEach(ing=>{
-      const prov=ing.proveedor;
-      if(!data[prot][prov])data[prot][prov]={ingresos:[],procesos:[]};
-      data[prot][prov].ingresos.push(ing);
-    });
-    // Para cada ingreso, buscar el proceso de limpieza más cercano en fecha
-    // Asociamos limpiezas por fecha al proveedor del ingreso más reciente anterior
-    const ingOrd=DB.ingresos.filter(r=>r.proteina===prot&&r.proveedor).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-    DB.procesos.filter(p=>p.proteina===prot&&p.tipo==='limpieza').forEach(proc=>{
-      // Encontrar el ingreso activo en la fecha del proceso (el más reciente ≤ fecha proceso)
-      const ingActivo=ingOrd.filter(i=>i.fecha<=proc.fecha).slice(-1)[0];
-      if(ingActivo&&data[prot][ingActivo.proveedor]){
-        data[prot][ingActivo.proveedor].procesos.push(proc);
-      }
-    });
-  });
-
-  let html=`<p class="sechead">Comparativa por proveedor</p>`;
-  let hayDatos=false;
-
-  prots.forEach(prot=>{
-    const provs=Object.entries(data[prot]).filter(([,d])=>d.ingresos.length>0);
-    if(provs.length===0)return;
-    hayDatos=true;
-
-    // Calcular stats por proveedor
-    const rows=provs.map(([prov,d])=>{
-      const kgTotal=d.ingresos.reduce((a,r)=>a+r.kg_bruto,0);
-      const costoPromKg=d.ingresos.reduce((a,r)=>a+(r.costo_kg*r.kg_bruto),0)/kgTotal||0;
-      const limpiezas=d.procesos;
-      const kgLimpIn=limpiezas.reduce((a,p)=>a+p.kg_in,0);
-      const kgDesp=limpiezas.reduce((a,p)=>a+p.kg_desperdicio,0);
-      const rendReal=kgLimpIn>0?((kgLimpIn-kgDesp)/kgLimpIn*100):null;
-      // Precio efectivo = costo/kg ajustado por desperdicio
-      const precioEfectivo=rendReal!==null&&rendReal>0?costoPromKg/(rendReal/100):null;
-      const nCompras=d.ingresos.length;
-      // Últimas 3 limpiezas para benchmark
-      const ult3=limpiezas.slice(-3);
-      const rendUlt3=ult3.length>0?ult3.reduce((a,p)=>a+(p.kg_in>0?(p.kg_in-p.kg_desperdicio)/p.kg_in*100:0),0)/ult3.length:null;
-      return{prov,kgTotal,costoPromKg,rendReal,rendUlt3,precioEfectivo,nCompras,nLimp:limpiezas.length};
-    }).sort((a,b)=>b.kgTotal-a.kgTotal);
-
-    // Mejor proveedor por precio efectivo
-    const mejorPrecio=rows.filter(r=>r.precioEfectivo!==null).sort((a,b)=>a.precioEfectivo-b.precioEfectivo)[0];
-
-    html+=`<div class="card">
-      <div class="ctitle" style="margin-bottom:10px">${prot}</div>
-      <div style="overflow-x:auto"><table>
-        <thead><tr>
-          <th>Proveedor</th><th>Compras</th><th>Kg total</th>
-          <th>$/kg compra</th><th>Rend. limpieza</th><th>Rend. últ. 3</th>
-          <th>$/kg efectivo</th><th></th>
-        </tr></thead>
-        <tbody>${rows.map(r=>{
-          const esMejor=mejorPrecio&&r.prov===mejorPrecio.prov;
-          const dc=r.rendReal===null?'bgray':r.rendReal>=70?'bok':r.rendReal>=55?'bwarn':'bdanger';
-          const dc3=r.rendUlt3===null?'bgray':r.rendUlt3>=70?'bok':r.rendUlt3>=55?'bwarn':'bdanger';
-          return `<tr style="${esMejor?'background:#f0faf5':''}">
-            <td><strong>${r.prov}</strong>${esMejor?' <span class="badge bok">mejor precio</span>':''}</td>
-            <td style="color:#888">${r.nCompras} comp.</td>
-            <td>${fmt(r.kgTotal,2)} kg</td>
-            <td>${r.costoPromKg>0?'$'+fmt(r.costoPromKg,2):'—'}</td>
-            <td>${r.rendReal!==null?`<span class="badge ${dc}">${r.rendReal.toFixed(1)}%</span>`:'<span class="badge bgray">Sin datos</span>'}</td>
-            <td>${r.rendUlt3!==null?`<span class="badge ${dc3}">${r.rendUlt3.toFixed(1)}%</span> <span style="font-size:10px;color:#888">(${Math.min(3,r.nLimp)} limp.)</span>`:'<span class="badge bgray">—</span>'}</td>
-            <td>${r.precioEfectivo!==null?`<strong style="color:${esMejor?'#0f6e56':'#1a1a1a'}">$${fmt(r.precioEfectivo,2)}</strong>`:'—'}</td>
-            <td style="font-size:10px;color:#888">${r.nLimp} limp. reg.</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table></div>
-      <div style="font-size:10px;color:#888;margin-top:8px">$/kg efectivo = precio de compra ajustado por rendimiento real de limpieza. Menor es mejor.</div>
-    </div>`;
-  });
-
-  if(!hayDatos){
-    html+=`<div class="card"><div style="color:#888;font-size:12px;padding:1rem;text-align:center">
-      Sin datos de proveedores. Registrá ingresos con proveedor asignado para ver la comparativa.
-    </div></div>`;
-  }
-  el.innerHTML=html;
-}
-
 function delEmpleado(i){
   DB.empleados.splice(i,1);saveDB();renderAdmin();
 }
 
-function addProveedor(){
-  const nombre=document.getElementById('prov-nombre').value.trim();
-  if(!nombre){alert('Ingresá un nombre.');return;}
-  if(!DB.proveedores)DB.proveedores=[];
-  if(DB.proveedores.includes(nombre)){alert('Ya existe ese proveedor.');return;}
-  DB.proveedores.push(nombre);saveDB();renderAdmin();
-}
-function delProveedor(i){
-  DB.proveedores.splice(i,1);saveDB();renderAdmin();
-}
-
 function resetDB(){
   if(!confirm('¿Seguro? No se puede deshacer.'))return;
-  const{users,teorico,substocks,productos,empleados,proveedores}=DB;
+  const{users,teorico,substocks,productos}=DB;
   DB={ingresos:[],procesos:[],ventas:[],calidad:[],
       ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
       pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
-      users,teorico,substocks,productos,empleados,proveedores};
+      users,teorico,substocks,productos};
   saveDB();alert('Base reseteada.');renderTab('resumen');
 }
 
@@ -1814,10 +1590,14 @@ function migrateDB(){
   if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
   if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
   if(!DB.empleados)DB.empleados=[];
-  if(!DB.proveedores)DB.proveedores=[];
   DB.productos.forEach(p=>{
     if(!p.chain)p.chain=['limpieza','coccion'];
     if(!p.kgPorcion&&p.kgLPU)p.kgPorcion=p.kgLPU;
+    if(p.stockNombre===undefined){
+      // Intentar mapear desde defaults
+      const def=DEFAULT_PRODUCTOS.find(d=>d.ptKey===p.ptKey);
+      p.stockNombre=def?.stockNombre||'';
+    }
   });
 }
 
@@ -1866,12 +1646,9 @@ loadDBFromSupabase().then(data=>{
           <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
           <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
           <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
-          <button class="tab" data-tab="proveedores" onclick="showTab('proveedores',this)">Proveedores</button>
           <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
         </div>
         <div class="user-bar">
-          <span id="sync-indicator" class="hidden"></span>
-          <button class="btn-sm" id="btn-refresh" onclick="manualRefresh()" title="Actualizar datos desde la base">↻ Actualizar</button>
           <div class="user-avatar" id="user-avatar">G</div>
           <span id="user-label">Gerente</span>
           <button class="btn-sm" onclick="doLogout()">Salir</button>
@@ -1888,15 +1665,8 @@ loadDBFromSupabase().then(data=>{
       <div id="config" class="sec"></div>
       <div id="calidad" class="sec"></div>
       <div id="admin" class="sec"></div>
-      <div id="proveedores" class="sec"></div>
     </div>`;
   initLoginSelect();
-  // Restaurar sesión si el usuario ya estaba logueado
-  const savedUid=sessionStorage.getItem('cu_id');
-  if(savedUid){
-    const ok=doLogin(savedUid);
-    if(!ok)sessionStorage.removeItem('cu_id');
-  }
 }).catch(e=>{
   console.error(e);
   document.getElementById('app').innerHTML=`
