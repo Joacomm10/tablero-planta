@@ -352,6 +352,11 @@ function doLogin(){
   if(!uid){document.getElementById('login-error').textContent='Seleccioná un usuario.';return;}
   const user=DB.users.find(u=>u.id===uid);
   if(!user||pass!==user.pass){document.getElementById('login-error').textContent='Contraseña incorrecta.';return;}
+  sessionStorage.setItem('planta_uid', uid);
+  activarSesion(user);
+}
+
+function activarSesion(user){
   CU=user;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('main-screen').style.display='block';
@@ -368,6 +373,7 @@ function doLogin(){
 
 function doLogout(){
   CU=null;
+  sessionStorage.removeItem('planta_uid');
   document.getElementById('main-screen').style.display='none';
   document.getElementById('login-screen').style.display='block';
   document.getElementById('login-pass').value='';
@@ -433,9 +439,13 @@ function renderResumen(){
   const cal=DB.calidad.filter(ff);
   const totalIn=ing.reduce((a,r)=>a+r.kg_bruto,0);
   const totalDesp=proc.filter(p=>p.tipo==='limpieza').reduce((a,p)=>a+p.kg_desperdicio,0);
-  const totalMerma=proc.filter(p=>p.tipo==='coccion').reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
+  const totalMerma=proc.filter(p=>p.tipo==='coccion'||p.tipo==='apertura').reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
   const totalVU=vents.reduce((a,v)=>a+v.unidades,0);
-  const rendGlobal=totalIn>0?((totalIn-totalDesp)/totalIn*100):0;
+  // Rendimiento: promedio de rendimientos individuales (no global, para no depender del stock inicial)
+  const limpiezas=proc.filter(p=>p.tipo==='limpieza'&&p.kg_in>0);
+  const rendGlobal=limpiezas.length>0
+    ? limpiezas.reduce((a,p)=>a+(p.kg_out/p.kg_in*100),0)/limpiezas.length
+    : 0;
   const totalPT=Object.values(DB.pt).reduce((a,v)=>a+v,0);
   const totalCaidas=cal.reduce((a,r)=>a+r.caidas,0);
   const totalPedidos=cal.reduce((a,r)=>a+r.pedidos,0);
@@ -502,10 +512,11 @@ function renderResumen(){
   <div style="font-size:12px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Producción</div>
   <div class="kgrid">
     <div class="kcard ${rendGlobal>=70?'ok':rendGlobal>=55?'warn':'danger'}">
-      <div class="klabel">Rendimiento limpieza</div><div class="kval">${rendGlobal.toFixed(1)}%</div><div class="ksub">neto / bruto</div>
+      <div class="klabel">Rendimiento limpieza</div><div class="kval">${rendGlobal.toFixed(1)}%</div>
+      <div class="ksub">promedio de ${limpiezas.length} proceso${limpiezas.length!==1?'s':''}</div>
     </div>
-    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">período</div></div>
-    <div class="kcard danger"><div class="klabel">Desperdicio</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">${totalIn>0?(totalDesp/totalIn*100).toFixed(1):0}%</div></div>
+    <div class="kcard"><div class="klabel">Kg bruto ingresado</div><div class="kval">${fmt(totalIn,1)}</div><div class="ksub">registrado en ingresos</div></div>
+    <div class="kcard ${totalDesp>0?'danger':''}"><div class="klabel">Desperdicio total</div><div class="kval">${fmt(totalDesp,1)} kg</div><div class="ksub">en procesos de limpieza</div></div>
     <div class="kcard warn"><div class="klabel">Merma cocción</div><div class="kval">${fmt(totalMerma,1)} kg</div><div class="ksub">en proceso</div></div>
     <div class="kcard ok"><div class="klabel">Stock terminado</div><div class="kval">${totalPT}</div><div class="ksub">unidades</div></div>
     <div class="kcard"><div class="klabel">Unidades vendidas</div><div class="kval">${totalVU}</div><div class="ksub">período</div></div>
@@ -1673,6 +1684,12 @@ loadDBFromSupabase().then(data=>{
       <div id="admin" class="sec"></div>
     </div>`;
   initLoginSelect();
+  // Restaurar sesión si estaba logueado antes de recargar
+  const savedUid = sessionStorage.getItem('planta_uid');
+  if(savedUid){
+    const user = DB.users.find(u=>u.id===savedUid);
+    if(user) activarSesion(user);
+  }
 }).catch(e=>{
   console.error(e);
   document.getElementById('app').innerHTML=`
