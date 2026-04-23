@@ -545,47 +545,50 @@ function renderResumen(){
 
   <div class="card">
     <div class="ctitle">Rendimientos reales vs teóricos por proteína</div>
-    ${protDesvios.map(function({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc}){
-      var kgComprado=DB.ingresos.filter(function(r){return r.proteina===prot&&ff(r);}).reduce(function(a,r){return a+r.kg_bruto;},0);
-      var procsLimp=proc.filter(function(p){return p.proteina===prot&&p.tipo==='limpieza';});
-      var procsCoc=proc.filter(function(p){return p.proteina===prot&&(p.tipo==='coccion'||p.tipo==='apertura');});
-      var kgDesp=procsLimp.reduce(function(a,p){return a+p.kg_desperdicio;},0);
-      var kgLimpio=procsLimp.reduce(function(a,p){return a+p.kg_out;},0);
-      var kgMerma=procsCoc.reduce(function(a,p){return a+(p.kg_in-p.kg_out);},0);
-      var kgCocido=procsCoc.reduce(function(a,p){return a+p.kg_out;},0);
-      var dcL=devLimp!==null?(Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger'):'bgray';
-      var dcC=devCoc!==null?(Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger'):'bgray';
-      var barColorL=devLimp!==null&&Math.abs(devLimp)<3?'#1D9E75':devLimp!==null&&Math.abs(devLimp)<8?'#EF9F27':'#E24B4A';
-      var barColorC=devCoc!==null&&Math.abs(devCoc)<3?'#1D9E75':devCoc!==null&&Math.abs(devCoc)<8?'#EF9F27':'#E24B4A';
-      var html='<div style="padding:10px 0;border-bottom:1px solid #f0efe8">';
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-      html+='<div style="font-size:13px;font-weight:500">'+prot+'</div>';
-      html+='<div style="display:flex;gap:6px">';
-      if(rendLimpReal!==null) html+='<span class="badge '+dcL+'">Limp: '+(devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'—')+'</span>';
-      if(rendCocReal!==null) html+='<span class="badge '+dcC+'">Coc: '+(devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'—')+'</span>';
-      html+='</div></div>';
-      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px">';
-      if(kgComprado>0) html+='<div style="padding:6px 8px;background:#f0efe8;border-radius:6px;font-size:11px"><div style="color:#888;margin-bottom:2px">Comprado</div><strong>'+fmt(kgComprado,2)+' kg</strong></div>';
-      if(kgDesp>0) html+='<div style="padding:6px 8px;background:#fcebeb;border-radius:6px;font-size:11px"><div style="color:#791f1f;margin-bottom:2px">Desperdicio</div><strong style="color:#791f1f">'+fmt(kgDesp,2)+' kg</strong></div>';
-      if(kgLimpio>0) html+='<div style="padding:6px 8px;background:#e6f1fb;border-radius:6px;font-size:11px"><div style="color:#0c447c;margin-bottom:2px">Limpio</div><strong style="color:#0c447c">'+fmt(kgLimpio,2)+' kg</strong></div>';
-      if(kgMerma>0) html+='<div style="padding:6px 8px;background:#faeeda;border-radius:6px;font-size:11px"><div style="color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">'+fmt(kgMerma,2)+' kg</strong></div>';
-      if(kgCocido>0) html+='<div style="padding:6px 8px;background:#e1f5ee;border-radius:6px;font-size:11px"><div style="color:#085041;margin-bottom:2px">Cocido</div><strong style="color:#085041">'+fmt(kgCocido,2)+' kg</strong></div>';
-      html+='</div>';
-      html+='<div style="display:flex;gap:12px;flex-wrap:wrap">';
-      html+='<div style="flex:1;min-width:160px">';
-      html+='<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Limpieza — Teórico '+(rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—')+'%'+(rendLimpReal!==null?' | Real '+(rendLimpReal*100).toFixed(1)+'%':'')+'</div>';
-      html+=rendLimpReal!==null?'<div class="bar-wrap"><div class="bar" style="width:'+Math.min((rendLimpReal*100),100)+'%;background:'+barColorL+'"></div></div>':'<div style="font-size:11px;color:#ccc">Sin procesos registrados</div>';
-      html+='</div>';
-      if(rendCocTeo){
-        html+='<div style="flex:1;min-width:160px">';
-        html+='<div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Cocción — Teórico '+(rendCocTeo*100).toFixed(1)+'%'+(rendCocReal!==null?' | Real '+(rendCocReal*100).toFixed(1)+'%':'')+'</div>';
-        html+=rendCocReal!==null?'<div class="bar-wrap"><div class="bar" style="width:'+Math.min((rendCocReal*100),100)+'%;background:'+barColorC+'"></div></div>':'<div style="font-size:11px;color:#ccc">Sin procesos registrados</div>';
-        html+='</div>';
-      }
-      html+='</div></div>';
-      return html;
-    }).join('')}
+    ${buildRendimientosHTML(protDesvios,proc,ff)}
   </div>
+
+  </div>`;
+}
+
+function buildRendimientosHTML(protDesvios,proc,ff){
+  return protDesvios.map(function(item){
+    var prot=item.prot,rendLimpTeo=item.rendLimpTeo,rendLimpReal=item.rendLimpReal,devLimp=item.devLimp,rendCocTeo=item.rendCocTeo,rendCocReal=item.rendCocReal,devCoc=item.devCoc;
+    var kgComprado=DB.ingresos.filter(function(r){return r.proteina===prot&&ff(r);}).reduce(function(a,r){return a+r.kg_bruto;},0);
+    var procsLimp=proc.filter(function(p){return p.proteina===prot&&p.tipo==='limpieza';});
+    var procsCoc=proc.filter(function(p){return p.proteina===prot&&(p.tipo==='coccion'||p.tipo==='apertura');});
+    var kgDesp=procsLimp.reduce(function(a,p){return a+p.kg_desperdicio;},0);
+    var kgLimpio=procsLimp.reduce(function(a,p){return a+p.kg_out;},0);
+    var kgMerma=procsCoc.reduce(function(a,p){return a+(p.kg_in-p.kg_out);},0);
+    var kgCocido=procsCoc.reduce(function(a,p){return a+p.kg_out;},0);
+    var dcL=devLimp!==null?(Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger'):'bgray';
+    var dcC=devCoc!==null?(Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger'):'bgray';
+    var barColorL=devLimp!==null&&Math.abs(devLimp)<3?'#1D9E75':devLimp!==null&&Math.abs(devLimp)<8?'#EF9F27':'#E24B4A';
+    var barColorC=devCoc!==null&&Math.abs(devCoc)<3?'#1D9E75':devCoc!==null&&Math.abs(devCoc)<8?'#EF9F27':'#E24B4A';
+    var h='<div style="padding:10px 0;border-bottom:1px solid #f0efe8">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    h+='<div style="font-size:13px;font-weight:500">'+prot+'</div><div style="display:flex;gap:6px">';
+    if(rendLimpReal!==null) h+='<span class="badge '+dcL+'">Limp: '+(devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'—')+'</span>';
+    if(rendCocReal!==null) h+='<span class="badge '+dcC+'">Coc: '+(devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'—')+'</span>';
+    h+='</div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px">';
+    if(kgComprado>0) h+='<div style="padding:6px 8px;background:#f0efe8;border-radius:6px;font-size:11px"><div style="color:#888;margin-bottom:2px">Comprado</div><strong>'+fmt(kgComprado,2)+' kg</strong></div>';
+    if(kgDesp>0) h+='<div style="padding:6px 8px;background:#fcebeb;border-radius:6px;font-size:11px"><div style="color:#791f1f;margin-bottom:2px">Desperdicio</div><strong style="color:#791f1f">'+fmt(kgDesp,2)+' kg</strong></div>';
+    if(kgLimpio>0) h+='<div style="padding:6px 8px;background:#e6f1fb;border-radius:6px;font-size:11px"><div style="color:#0c447c;margin-bottom:2px">Limpio</div><strong style="color:#0c447c">'+fmt(kgLimpio,2)+' kg</strong></div>';
+    if(kgMerma>0) h+='<div style="padding:6px 8px;background:#faeeda;border-radius:6px;font-size:11px"><div style="color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">'+fmt(kgMerma,2)+' kg</strong></div>';
+    if(kgCocido>0) h+='<div style="padding:6px 8px;background:#e1f5ee;border-radius:6px;font-size:11px"><div style="color:#085041;margin-bottom:2px">Cocido</div><strong style="color:#085041">'+fmt(kgCocido,2)+' kg</strong></div>';
+    h+='</div><div style="display:flex;gap:12px;flex-wrap:wrap">';
+    h+='<div style="flex:1;min-width:160px"><div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Limpieza — Teórico '+(rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—')+'%'+(rendLimpReal!==null?' | Real '+(rendLimpReal*100).toFixed(1)+'%':'')+'</div>';
+    h+=rendLimpReal!==null?'<div class="bar-wrap"><div class="bar" style="width:'+Math.min((rendLimpReal*100),100)+'%;background:'+barColorL+'"></div></div>':'<div style="font-size:11px;color:#ccc">Sin procesos</div>';
+    h+='</div>';
+    if(rendCocTeo){
+      h+='<div style="flex:1;min-width:160px"><div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Cocción — Teórico '+(rendCocTeo*100).toFixed(1)+'%'+(rendCocReal!==null?' | Real '+(rendCocReal*100).toFixed(1)+'%':'')+'</div>';
+      h+=rendCocReal!==null?'<div class="bar-wrap"><div class="bar" style="width:'+Math.min((rendCocReal*100),100)+'%;background:'+barColorC+'"></div></div>':'<div style="font-size:11px;color:#ccc">Sin procesos</div>';
+      h+='</div>';
+    }
+    h+='</div></div>';
+    return h;
+  }).join('');
 }
 
 function renderCalidad(){
