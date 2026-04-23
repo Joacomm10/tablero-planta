@@ -544,38 +544,44 @@ function renderResumen(){
   </div>
 
   <div class="card">
-    <div class="ctitle">Rendimientos reales vs teóricos</div>
-    ${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>`
-    <div style="padding:8px 0;border-bottom:1px solid #f0efe8">
-      <div style="font-size:12px;font-weight:500;margin-bottom:6px">${prot}</div>
-      <div style="display:flex;gap:20px;flex-wrap:wrap">
-        <div style="min-width:200px">
-          <span style="font-size:10px;color:#888;text-transform:uppercase">Limpieza</span><br>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="font-size:11px;color:#888">Teórico <strong>${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%</strong></span>
-            ${rendLimpReal!==null?`
-            <span style="font-size:11px">Real <strong>${(rendLimpReal*100).toFixed(1)}%</strong></span>
-            <span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}">${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'—'}</span>`
-            :'<span class="badge bgray">Sin datos</span>'}
-          </div>
-          ${rendLimpReal!==null?`<div class="bar-wrap" style="margin-top:4px"><div class="bar" style="width:${Math.min((rendLimpReal*100),100)}%;background:${devLimp!==null&&Math.abs(devLimp)<3?'#1D9E75':devLimp!==null&&Math.abs(devLimp)<8?'#EF9F27':'#E24B4A'}"></div></div>`:''}
+    <div class="ctitle">Rendimientos reales vs teóricos por proteína</div>
+    ${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>{
+      const kgComprado=DB.ingresos.filter(r=>r.proteina===prot&&ff(r)).reduce((a,r)=>a+r.kg_bruto,0);
+      const procsLimp=proc.filter(p=>p.proteina===prot&&p.tipo==='limpieza');
+      const procsCoc=proc.filter(p=>p.proteina===prot&&(p.tipo==='coccion'||p.tipo==='apertura'));
+      const kgDesp=procsLimp.reduce((a,p)=>a+p.kg_desperdicio,0);
+      const kgLimpio=procsLimp.reduce((a,p)=>a+p.kg_out,0);
+      const kgMerma=procsCoc.reduce((a,p)=>a+(p.kg_in-p.kg_out),0);
+      const kgCocido=procsCoc.reduce((a,p)=>a+p.kg_out,0);
+      return `
+    <div style="padding:10px 0;border-bottom:1px solid #f0efe8">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:500">${prot}</div>
+        <div style="display:flex;gap:6px">
+          ${rendLimpReal!==null?`<span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}">Limp: ${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'—'}</span>`:''}
+          ${rendCocReal!==null?`<span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}">Coc: ${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'—'}</span>`:''}
         </div>
-        ${rendCocTeo?`<div style="min-width:200px">
-          <span style="font-size:10px;color:#888;text-transform:uppercase">Cocción</span><br>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-            <span style="font-size:11px;color:#888">Teórico <strong>${(rendCocTeo*100).toFixed(1)}%</strong></span>
-            ${rendCocReal!==null?`
-            <span style="font-size:11px">Real <strong>${(rendCocReal*100).toFixed(1)}%</strong></span>
-            <span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}">${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'—'}</span>`
-            :'<span class="badge bgray">Sin datos</span>'}
-          </div>
-          ${rendCocReal!==null?`<div class="bar-wrap" style="margin-top:4px"><div class="bar" style="width:${Math.min((rendCocReal*100),100)}%;background:${devCoc!==null&&Math.abs(devCoc)<3?'#1D9E75':devCoc!==null&&Math.abs(devCoc)<8?'#EF9F27':'#E24B4A'}"></div></div>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px">
+        ${kgComprado>0?`<div style="padding:6px 8px;background:#f0efe8;border-radius:6px;font-size:11px"><div style="color:#888;margin-bottom:2px">Comprado</div><strong>${fmt(kgComprado,2)} kg</strong></div>`:''}
+        ${kgDesp>0?`<div style="padding:6px 8px;background:#fcebeb;border-radius:6px;font-size:11px"><div style="color:#791f1f;margin-bottom:2px">Desperdicio</div><strong style="color:#791f1f">${fmt(kgDesp,2)} kg</strong></div>`:''}
+        ${kgLimpio>0?`<div style="padding:6px 8px;background:#e6f1fb;border-radius:6px;font-size:11px"><div style="color:#0c447c;margin-bottom:2px">Limpio</div><strong style="color:#0c447c">${fmt(kgLimpio,2)} kg</strong></div>`:''}
+        ${kgMerma>0?`<div style="padding:6px 8px;background:#faeeda;border-radius:6px;font-size:11px"><div style="color:#633806;margin-bottom:2px">Merma cocción</div><strong style="color:#633806">${fmt(kgMerma,2)} kg</strong></div>`:''}
+        ${kgCocido>0?`<div style="padding:6px 8px;background:#e1f5ee;border-radius:6px;font-size:11px"><div style="color:#085041;margin-bottom:2px">Cocido</div><strong style="color:#085041">${fmt(kgCocido,2)} kg</strong></div>`:''}
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Limpieza — Teórico ${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%${rendLimpReal!==null?' | Real '+(rendLimpReal*100).toFixed(1)+'%':''}</div>
+          ${rendLimpReal!==null?`<div class="bar-wrap"><div class="bar" style="width:${Math.min((rendLimpReal*100),100)}%;background:${devLimp!==null&&Math.abs(devLimp)<3?'#1D9E75':devLimp!==null&&Math.abs(devLimp)<8?'#EF9F27':'#E24B4A'}"></div></div>`:'<div style="font-size:11px;color:#ccc">Sin procesos registrados</div>'}
+        </div>
+        ${rendCocTeo?`<div style="flex:1;min-width:160px">
+          <div style="font-size:10px;color:#888;text-transform:uppercase;margin-bottom:3px">Cocción — Teórico ${(rendCocTeo*100).toFixed(1)}%${rendCocReal!==null?' | Real '+(rendCocReal*100).toFixed(1)+'%':''}</div>
+          ${rendCocReal!==null?`<div class="bar-wrap"><div class="bar" style="width:${Math.min((rendCocReal*100),100)}%;background:${devCoc!==null&&Math.abs(devCoc)<3?'#1D9E75':devCoc!==null&&Math.abs(devCoc)<8?'#EF9F27':'#E24B4A'}"></div></div>`:'<div style="font-size:11px;color:#ccc">Sin procesos registrados</div>'}
         </div>`:''}
       </div>
-    </div>`).join('')}
+    </div>`;
+    }).join('')}
   </div>
-
-  </div>`;
 }
 
 function renderCalidad(){
