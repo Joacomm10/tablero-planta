@@ -548,18 +548,28 @@ function renderResumen(){
     ${protDesvios.map(({prot,rendLimpTeo,rendLimpReal,devLimp,rendCocTeo,rendCocReal,devCoc})=>`
     <div style="padding:8px 0;border-bottom:1px solid #f0efe8">
       <div style="font-size:12px;font-weight:500;margin-bottom:6px">${prot}</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div style="min-width:200px">
           <span style="font-size:10px;color:#888;text-transform:uppercase">Limpieza</span><br>
-          <span style="font-size:11px">Teórico: <strong>${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%</strong></span>
-          ${rendLimpReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendLimpReal*100).toFixed(1)}%</strong></span>
-          <span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+            <span style="font-size:11px;color:#888">Teórico <strong>${rendLimpTeo?((rendLimpTeo)*100).toFixed(1):'—'}%</strong></span>
+            ${rendLimpReal!==null?`
+            <span style="font-size:11px">Real <strong>${(rendLimpReal*100).toFixed(1)}%</strong></span>
+            <span class="badge ${devLimp!==null?Math.abs(devLimp)<3?'bok':Math.abs(devLimp)<8?'bwarn':'bdanger':'bgray'}">${devLimp!==null?(devLimp>=0?'+':'')+devLimp.toFixed(1)+'%':'—'}</span>`
+            :'<span class="badge bgray">Sin datos</span>'}
+          </div>
+          ${rendLimpReal!==null?`<div class="bar-wrap" style="margin-top:4px"><div class="bar" style="width:${Math.min((rendLimpReal*100),100)}%;background:${devLimp!==null&&Math.abs(devLimp)<3?'#1D9E75':devLimp!==null&&Math.abs(devLimp)<8?'#EF9F27':'#E24B4A'}"></div></div>`:''}
         </div>
-        ${rendCocTeo?`<div>
+        ${rendCocTeo?`<div style="min-width:200px">
           <span style="font-size:10px;color:#888;text-transform:uppercase">Cocción</span><br>
-          <span style="font-size:11px">Teórico: <strong>${(rendCocTeo*100).toFixed(1)}%</strong></span>
-          ${rendCocReal!==null?`<span style="font-size:11px;margin-left:8px">Real: <strong>${(rendCocReal*100).toFixed(1)}%</strong></span>
-          <span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}" style="margin-left:4px">${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'Sin datos'}</span>`:'<span style="font-size:11px;color:#888;margin-left:8px">Sin datos</span>'}
+          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+            <span style="font-size:11px;color:#888">Teórico <strong>${(rendCocTeo*100).toFixed(1)}%</strong></span>
+            ${rendCocReal!==null?`
+            <span style="font-size:11px">Real <strong>${(rendCocReal*100).toFixed(1)}%</strong></span>
+            <span class="badge ${devCoc!==null?Math.abs(devCoc)<3?'bok':Math.abs(devCoc)<8?'bwarn':'bdanger':'bgray'}">${devCoc!==null?(devCoc>=0?'+':'')+devCoc.toFixed(1)+'%':'—'}</span>`
+            :'<span class="badge bgray">Sin datos</span>'}
+          </div>
+          ${rendCocReal!==null?`<div class="bar-wrap" style="margin-top:4px"><div class="bar" style="width:${Math.min((rendCocReal*100),100)}%;background:${devCoc!==null&&Math.abs(devCoc)<3?'#1D9E75':devCoc!==null&&Math.abs(devCoc)<8?'#EF9F27':'#E24B4A'}"></div></div>`:''}
         </div>`:''}
       </div>
     </div>`).join('')}
@@ -854,7 +864,7 @@ function renderProcesoForm(){
         ${respField}
       </div>
       <div class="frow">
-        <div class="fg" style="max-width:110px"><label>Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
+        <div class="fg" style="max-width:110px"><label id="pf-kgin-label">Kg de sub-stock usado</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcArmado()"></div>
         <div class="fg" style="max-width:110px"><label>Unidades armadas</label><input type="number" id="pf-unidades" placeholder="0" step="1" oninput="calcArmado()"></div>
         <div class="fg" style="max-width:110px"><label>Sobrante / desperdicio (kg)</label><input type="number" id="pf-recorte" placeholder="0.00" step="0.01"></div>
       </div>
@@ -903,7 +913,6 @@ function updateArmadoSalidaLabel(){
 }
 
 function onProductoArmadoChange(){
-  // Auto-seleccionar el sub-stock que corresponde al producto elegido
   const sel=document.getElementById('pf-producto');
   if(!sel) return;
   const opt=sel.options[sel.selectedIndex];
@@ -911,7 +920,6 @@ function onProductoArmadoChange(){
   if(substock){
     const origenSel=document.getElementById('pf-origen');
     if(origenSel){
-      // Buscar la opción que tenga ese value
       for(let i=0;i<origenSel.options.length;i++){
         if(origenSel.options[i].value===substock){
           origenSel.selectedIndex=i;
@@ -919,6 +927,19 @@ function onProductoArmadoChange(){
         }
       }
     }
+  }
+  // Actualizar label del campo kgin según tipo del sub-stock origen
+  const origenSel=document.getElementById('pf-origen');
+  const origenKey=origenSel?.value;
+  const ssDef=origenKey?findSSdef(origenKey):null;
+  const kginLabel=document.getElementById('pf-kgin-label');
+  if(kginLabel){
+    kginLabel.textContent=ssDef?.type==='u'?'Unidades de sub-stock usadas':'Kg de sub-stock usado';
+  }
+  const kginInput=document.getElementById('pf-kgin');
+  if(kginInput&&ssDef){
+    kginInput.step=ssDef.type==='u'?'1':'0.01';
+    kginInput.placeholder=ssDef.type==='u'?'0':'0.00';
   }
   calcArmado();
 }
