@@ -1668,22 +1668,48 @@ function exportarExcel(){
 // INIT
 // ============================================================
 function migrateDB(){
+  // Migrar ss keys nuevos que no existen en Supabase
   Object.values(DEFAULT_SUBSTOCKS).flat().forEach(s=>{
-    if(DB.ss[s.key]===undefined)DB.ss[s.key]=0;
+    if(DB.ss[s.key]===undefined) DB.ss[s.key]=0;
   });
-  if(!DB.substocks)DB.substocks=JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS));
-  if(!DB.teorico)DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
-  if(!DB.productos)DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
-  if(!DB.users)DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
-  if(!DB.empleados)DB.empleados=[];
-  DB.productos.forEach(p=>{
-    if(!p.chain)p.chain=['limpieza','coccion'];
-    if(!p.kgPorcion&&p.kgLPU)p.kgPorcion=p.kgLPU;
-    if(p.stockNombre===undefined){
-      // Intentar mapear desde defaults
-      const def=DEFAULT_PRODUCTOS.find(d=>d.ptKey===p.ptKey);
-      p.stockNombre=def?.stockNombre||'';
+  // Migrar sub-stocks nuevos que no existen en DB.substocks
+  Object.entries(DEFAULT_SUBSTOCKS).forEach(([prot,subs])=>{
+    if(!DB.substocks) DB.substocks={};
+    if(!DB.substocks[prot]) DB.substocks[prot]=JSON.parse(JSON.stringify(subs));
+    else {
+      // Agregar sub-stocks nuevos que no están en Supabase
+      subs.forEach(s=>{
+        if(!DB.substocks[prot].find(ex=>ex.key===s.key)){
+          DB.substocks[prot].push(JSON.parse(JSON.stringify(s)));
+        }
+      });
     }
+  });
+  if(!DB.teorico) DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
+  if(!DB.usuarios) DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
+  if(!DB.empleados) DB.empleados=[];
+  // Migrar productos: actualizar ventaDirecta, cantVentaDirecta, stockNombre desde defaults
+  if(!DB.productos) DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
+  else {
+    // Agregar productos nuevos que no existen
+    DEFAULT_PRODUCTOS.forEach(def=>{
+      const exists=DB.productos.find(p=>p.ptKey===def.ptKey);
+      if(!exists) DB.productos.push(JSON.parse(JSON.stringify(def)));
+    });
+    // Actualizar campos de productos existentes desde defaults
+    DB.productos.forEach(p=>{
+      const def=DEFAULT_PRODUCTOS.find(d=>d.ptKey===p.ptKey);
+      if(!p.chain) p.chain=['limpieza','coccion'];
+      if(!p.kgPorcion&&p.kgLPU) p.kgPorcion=p.kgLPU;
+      if(p.stockNombre===undefined) p.stockNombre=def?.stockNombre||'';
+      if(p.ventaDirecta===undefined&&def?.ventaDirecta) p.ventaDirecta=def.ventaDirecta;
+      if(p.cantVentaDirecta===undefined&&def?.cantVentaDirecta) p.cantVentaDirecta=def.cantVentaDirecta;
+      if(def?.substock&&p.substock!==def.substock&&def.ventaDirecta) p.substock=def.substock;
+    });
+  }
+  // Asegurar que PT keys de wraps/ensaladas existan
+  DB.productos.forEach(p=>{
+    if(DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
   });
 }
 
