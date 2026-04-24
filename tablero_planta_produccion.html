@@ -101,10 +101,12 @@ const DEFAULT_SUBSTOCKS = {
     {key:'pechuga_mp',              label:'Pechuga (entera)',          estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
     {key:'pechuga_medallon_170_crudo',label:'Medallones crudos 170g',  estado:'crudo', type:'u',  gramos:170, color:'#e6f1fb', tc:'#0c447c'},
     {key:'pechuga_medallon_250_crudo',label:'Medallones crudos 250g',  estado:'crudo', type:'u',  gramos:250, color:'#e6f1fb', tc:'#0c447c'},
+    {key:'pechuga_medallon_lpu',    label:'Medallón LPU (limpio, kg)', estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
     {key:'pechuga_cubos_crudo',     label:'Cubos crudos',              estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'pechuga_tiras_crudo',     label:'Tiras crudas',              estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'pechuga_medallon_170_cocido',label:'Medallones cocidos 170g',estado:'cocido',type:'u',  gramos:170, color:'#e1f5ee', tc:'#085041'},
     {key:'pechuga_medallon_250_cocido',label:'Medallones cocidos 250g',estado:'cocido',type:'u',  gramos:250, color:'#e1f5ee', tc:'#085041'},
+    {key:'pechuga_medallon_lpu_cocido',label:'Medallón LPU cocido (kg)',estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
     {key:'pechuga_cubos_cocido',    label:'Cubos cocidos',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
     {key:'pechuga_tiras_cocido',    label:'Tiras cocidas',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
   ],
@@ -144,8 +146,6 @@ const DEFAULT_PRODUCTOS = [
   {nombre:'Ternera braseada - 200g',   proteina:'Tapa de asado', kgPorcion:0.200, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 200g',    stockNombre:'Ternera braseada al horno - 200g'},
   {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Goulash 200g',             stockNombre:'Goulash - 200g'},
   {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Pulled Beef 250g',         stockNombre:'Pulled Beef - 250g'},
-  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo',             stockNombre:''},
-  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',        stockNombre:''},
   // Pechuga - medallones
   {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
   {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
@@ -160,9 +160,13 @@ const DEFAULT_PRODUCTOS = [
   {nombre:'Pollo teriyaki - 300g',     proteina:'Pechuga', kgPorcion:0.131, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 300g',    stockNombre:'Pollo teriyaki - 300g'},
   {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 200g', stockNombre:'Tiras de pollo con vegetales - 200g'},
   {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 300g', stockNombre:'Tiras de pollo con vegetales - 300g'},
-  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap César',             stockNombre:''},
-  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Ensalada César',         stockNombre:''},
-  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_tiras_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap italiano',          stockNombre:''},
+  // Wraps y ensaladas - armado en el momento, descuenta directo del sub-stock
+  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap César',       stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Ensalada César',   stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap italiano',    stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo',     stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',       chain:['limpieza','coccion'], ptKey:'Wrap pastor',      stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   // Solomillo
   {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
   {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 200g',   stockNombre:'Tiras de solomillo con vegetales - 200g'},
@@ -170,7 +174,6 @@ const DEFAULT_PRODUCTOS = [
   // Bondiola
   {nombre:'Bondiola laqueada - 250g',  proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_medallon', chain:['limpieza','coccion'], ptKey:'Bondiola laqueada 250g', stockNombre:'Bondiola laqueada - 250g'},
   {nombre:'Pulled Pork - 250g',        proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Pulled Pork 250g',       stockNombre:'Pulled Pork - 250g'},
-  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Wrap pastor',            stockNombre:''},
   // Lomo
   {nombre:'Lomo al tomillo - 180g',    proteina:'Lomo', kgPorcion:0.180, substock:'lomo_medallon_180_crudo', chain:['limpieza'], ptKey:'Lomo al tomillo 180g',               stockNombre:'Medallón de lomo con tomillo - 150g'},
   // Cuadril
@@ -185,8 +188,10 @@ const DEFAULT_SS = {
   tapa_brisket_cocido:0, tapa_recortes_cocido:0,
   pechuga_mp:0,
   pechuga_medallon_170_crudo:0, pechuga_medallon_250_crudo:0,
+  pechuga_medallon_lpu:0,
   pechuga_cubos_crudo:0, pechuga_tiras_crudo:0,
   pechuga_medallon_170_cocido:133, pechuga_medallon_250_cocido:71,
+  pechuga_medallon_lpu_cocido:0,
   pechuga_cubos_cocido:15.75, pechuga_tiras_cocido:2.71,
   solomillo_mp:0, solomillo_medallon_170_crudo:0, solomillo_tiras_crudo:0,
   solomillo_medallon_170_cocido:0, solomillo_tiras_cocido:4.58,
@@ -1271,17 +1276,22 @@ function confirmarImport(){
   const {matcheados, fechaReg} = window._importData||{};
   if(!matcheados||matcheados.length===0) return;
   matcheados.forEach(({prod,cant})=>{
-    const sp = getPT(prod.ptKey);
-    setPT(prod.ptKey, getPT(prod.ptKey)-cant);
-    const sa = getPT(prod.ptKey);
-    DB.ventas.push({fecha:fechaReg, producto:prod.nombre, unidades:cant,
-      usuario:CU.nombre, sp, sa, id:Date.now()+Math.random()});
+    if(prod.ventaDirecta){
+      const descuento=parseFloat((prod.cantVentaDirecta*cant).toFixed(3));
+      setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
+      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
+        sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,id:Date.now()+Math.random()});
+    } else {
+      const sp=getPT(prod.ptKey);
+      setPT(prod.ptKey,getPT(prod.ptKey)-cant);
+      const sa=getPT(prod.ptKey);
+      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,sp,sa,id:Date.now()+Math.random()});
+    }
   });
   saveDB();
-  window._importData = null;
+  window._importData=null;
   alert(`✅ Se registraron ${matcheados.length} productos correctamente.`);
-  renderVentas();
-  checkAlertas();
+  renderVentas();checkAlertas();
 }
 
 function updateVentaInfo(){
@@ -1289,13 +1299,23 @@ function updateVentaInfo(){
   const uni=parseInt(document.getElementById('v-uni')?.value)||0;
   const p=DB.productos.find(pp=>pp.nombre===pN);
   const prev=document.getElementById('v-prev');if(!prev||!p)return;
-  const sa=getPT(p.ptKey);
-  const post=sa-uni;
-  const cls=post<0?'color:#a32d2d':post<=5?'color:#854f0b':'color:#0f6e56';
   const kgTeo=calcKgMPTeorico(p);
-  const kgTeoTotal=kgTeo*uni;
-  prev.innerHTML=`Proteína: <strong>${p.proteina}</strong> | Stock actual: <strong>${sa}</strong> → después: <strong style="${cls}">${post}</strong>${post<0?' <span style="color:#a32d2d">— INSUFICIENTE</span>':''}<br>
-  <span style="color:#888">kg MP teórico por porción: <strong>${fmt(kgTeo,3)} kg</strong> | Total para ${uni} u.: <strong>${fmt(kgTeoTotal,3)} kg</strong> (porción ${fmt(p.kgPorcion,3)} kg × cadena de mermas)</span>`;
+  if(p.ventaDirecta){
+    const ssDef=findSSdef(p.substock);
+    const stockActual=getSS(p.substock);
+    const cant=parseFloat((p.cantVentaDirecta*uni).toFixed(3));
+    const post=stockActual-cant;
+    const cls=post<0?'color:#a32d2d':post<=1?'color:#854f0b':'color:#0f6e56';
+    prev.innerHTML=`<span class="badge bpurple">Armado en el momento</span> Descuenta de: <strong>${ssDef?.label||p.substock}</strong><br>
+    Stock actual: <strong>${fmt(stockActual,2)} kg</strong> | A descontar: <strong>${fmt(cant,3)} kg</strong> → después: <strong style="${cls}">${fmt(post,2)} kg</strong>${post<0?' <span style="color:#a32d2d">— INSUFICIENTE</span>':''}`;
+  } else {
+    const sa=getPT(p.ptKey);
+    const post=sa-uni;
+    const cls=post<0?'color:#a32d2d':post<=5?'color:#854f0b':'color:#0f6e56';
+    const kgTeoTotal=kgTeo*uni;
+    prev.innerHTML=`Proteína: <strong>${p.proteina}</strong> | Stock actual: <strong>${sa}</strong> → después: <strong style="${cls}">${post}</strong>${post<0?' <span style="color:#a32d2d">— INSUFICIENTE</span>':''}<br>
+    <span style="color:#888">kg MP teórico por porción: <strong>${fmt(kgTeo,3)} kg</strong> | Total para ${uni} u.: <strong>${fmt(kgTeoTotal,3)} kg</strong></span>`;
+  }
 }
 
 function addVenta(){
@@ -1304,11 +1324,21 @@ function addVenta(){
   const uni=parseInt(document.getElementById('v-uni').value);
   if(!fecha||isNaN(uni)||uni<=0){alert('Completá todos los campos.');return;}
   const p=DB.productos.find(pp=>pp.nombre===pN);
-  const sp=p?getPT(p.ptKey):null;
-  if(p&&getPT(p.ptKey)<uni){if(!confirm(`Stock insuficiente: ${getPT(p.ptKey)} u. ¿Continuás?`))return;}
-  if(p)setPT(p.ptKey,getPT(p.ptKey)-uni);
-  const sa=p?getPT(p.ptKey):null;
-  DB.ventas.push({fecha,producto:pN,unidades:uni,usuario:CU.nombre,sp,sa,id:Date.now()});
+  if(p&&p.ventaDirecta){
+    // Descuenta directamente del sub-stock, no del PT
+    const ssDef=findSSdef(p.substock);
+    const cant=parseFloat((p.cantVentaDirecta*uni).toFixed(3));
+    const stockActual=getSS(p.substock);
+    if(stockActual<cant){if(!confirm(`Stock insuficiente en "${ssDef?.label}": ${fmt(stockActual,2)} kg disponibles. ¿Continuás?`))return;}
+    setSS(p.substock,Math.max(0,stockActual-cant));
+    DB.ventas.push({fecha,producto:pN,unidades:uni,usuario:CU.nombre,sp:null,sa:null,ventaDirecta:true,substock:p.substock,cantDescuentoSS:cant,id:Date.now()});
+  } else {
+    const sp=p?getPT(p.ptKey):null;
+    if(p&&getPT(p.ptKey)<uni){if(!confirm(`Stock insuficiente: ${getPT(p.ptKey)} u. ¿Continuás?`))return;}
+    if(p)setPT(p.ptKey,getPT(p.ptKey)-uni);
+    const sa=p?getPT(p.ptKey):null;
+    DB.ventas.push({fecha,producto:pN,unidades:uni,usuario:CU.nombre,sp,sa,id:Date.now()});
+  }
   saveDB();document.getElementById('v-uni').value='';renderVentas();checkAlertas();
 }
 
@@ -1316,7 +1346,12 @@ function delVenta(i){
   if(CU.role!=='gerente')return;
   const v=DB.ventas[i];
   const p=DB.productos.find(pp=>pp.nombre===v.producto);
-  if(p)setPT(p.ptKey,getPT(p.ptKey)+v.unidades);
+  if(v.ventaDirecta&&v.substock){
+    // Devuelve al sub-stock
+    setSS(v.substock,getSS(v.substock)+(v.cantDescuentoSS||0));
+  } else if(p){
+    setPT(p.ptKey,getPT(p.ptKey)+v.unidades);
+  }
   DB.ventas.splice(i,1);saveDB();renderVentas();checkAlertas();
 }
 
