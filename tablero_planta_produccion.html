@@ -1205,30 +1205,26 @@ async function importarPedidos(){
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
-    // Agrupar por producto: columna A=fecha(0), B=cliente(1), C=ID(2), D=BASE(3), E=CANTIDAD(4)
-    const totales = {};
+    // Procesar filas individualmente (sin agrupar) para poder borrar cada una por separado
+    const filas = [];
     rows.forEach(row=>{
       if(!row.c||!row.c[0]||!row.c[3]||!row.c[4]) return;
-      const fechaCell = row.c[0].v?.toString().trim();
-      if(!fechaCell) return;
       const prod = row.c[3].v?.toString().trim();
       const cant = parseInt(row.c[4].v)||0;
       if(!prod||cant<=0) return;
-      totales[prod] = (totales[prod]||0)+cant;
+      filas.push({prod, cant});
     });
 
-    if(Object.keys(totales).length===0){
-      prev.innerHTML=`<div class="alert-row">No se encontraron filas para la fecha "${fechaFiltro}". Verificá que el nombre de la pestaña sea exactamente "pedidos ${fechaFiltro}".</div>`;
+    if(filas.length===0){
+      prev.innerHTML=`<div class="alert-row">No se encontraron filas para la fecha "${fechaFiltro}".</div>`;
       return;
     }
 
     // Cruzar con productos del tablero via stockNombre
-    // La planilla guarda nombres sin 'g' al final (ej: '- 170' en vez de '- 170g')
-    // Normalizamos para comparar
     function normalizarNombre(n){ return n.toLowerCase().trim().replace(/g$/, '').trim(); }
     const matcheados = [];
-    const noMatcheados = [];
-    Object.entries(totales).forEach(([stockNombre, cant])=>{
+    const noMatcheados = {};
+    filas.forEach(({prod:stockNombre, cant})=>{
       const prod = DB.productos.find(p=>{
         if(!p.stockNombre) return false;
         return normalizarNombre(p.stockNombre) === normalizarNombre(stockNombre);
@@ -1237,33 +1233,43 @@ async function importarPedidos(){
         const stockActual = getPT(prod.ptKey);
         matcheados.push({prod, cant, stockActual, stockNombre});
       } else {
-        noMatcheados.push({stockNombre, cant});
+        noMatcheados[stockNombre] = (noMatcheados[stockNombre]||0)+cant;
       }
     });
 
-    // Guardar en window para confirmar después
+    // Para el preview, agrupar por producto para mostrar resumen
+    const resumenMatch = {};
+    matcheados.forEach(({prod,cant,stockActual})=>{
+      if(!resumenMatch[prod.ptKey]) resumenMatch[prod.ptKey]={prod,cant:0,stockActual};
+      resumenMatch[prod.ptKey].cant+=cant;
+    });
+
+    // Guardar filas individuales para registrar
     window._importData = {matcheados, fechaReg};
 
     prev.innerHTML=`
     <div style="margin-top:12px">
-      ${matcheados.length>0?`
-      <div style="font-size:11px;font-weight:500;color:#0c447c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">✅ Productos que se van a registrar (${matcheados.length})</div>
+      ${Object.values(resumenMatch).length>0?`
+      <div style="font-size:11px;font-weight:500;color:#0c447c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">✅ Productos que se van a registrar (${Object.values(resumenMatch).length})</div>
       <table style="margin-bottom:12px">
         <thead><tr><th>Producto</th><th>Unidades</th><th>Stock actual</th><th>Stock después</th></tr></thead>
-        <tbody>${matcheados.map(({prod,cant,stockActual})=>{
-          const post=stockActual-cant;
+        <tbody>${Object.values(resumenMatch).map(({prod,cant,stockActual})=>{
+          const post=prod.ventaDirecta
+            ? getSS(prod.substock)-(prod.cantVentaDirecta*cant)
+            : stockActual-cant;
           return `<tr>
-            <td>${prod.nombre}</td><td><strong>${cant}</strong></td>
-            <td>${stockActual}</td>
-            <td><strong style="color:${post<0?'#a32d2d':post<=5?'#854f0b':'#0f6e56'}">${post}</strong>${post<0?' ⚠️':''}</td>
+            <td>${prod.nombre}${prod.ventaDirecta?` <span class="badge bpurple">directo</span>`:''}</td>
+            <td><strong>${cant}</strong></td>
+            <td>${prod.ventaDirecta?fmt(getSS(prod.substock),2)+' kg':stockActual+' u.'}</td>
+            <td><strong style="color:${post<0?'#a32d2d':post<=5?'#854f0b':'#0f6e56'}">${prod.ventaDirecta?fmt(post,2)+' kg':post+' u.'}</strong>${post<0?' ⚠️':''}</td>
           </tr>`;
         }).join('')}</tbody>
       </table>
-      <button class="btn btn-primary" onclick="confirmarImport()">✅ Confirmar y registrar ${matcheados.length} productos</button>`:''}
+      <button class="btn btn-primary" onclick="confirmarImport()">✅ Confirmar y registrar</button>`:''}
 
-      ${noMatcheados.length>0?`
-      <div style="font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-top:12px;margin-bottom:6px">⚠️ Productos sin mapeo en el tablero (${noMatcheados.length})</div>
-      <div style="font-size:11px;color:#888">${noMatcheados.map(({stockNombre,cant})=>`<span style="display:inline-block;background:#f0efe8;border-radius:4px;padding:2px 8px;margin:2px">${stockNombre} (${cant}u)</span>`).join('')}</div>
+      ${Object.keys(noMatcheados).length>0?`
+      <div style="font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-top:12px;margin-bottom:6px">⚠️ Sin mapeo (${Object.keys(noMatcheados).length})</div>
+      <div style="font-size:11px;color:#888">${Object.entries(noMatcheados).map(([n,c])=>`<span style="display:inline-block;background:#f0efe8;border-radius:4px;padding:2px 8px;margin:2px">${n} (${c}u)</span>`).join('')}</div>
       <div style="font-size:11px;color:#888;margin-top:6px">Para mapearlos, agregá el "Nombre en planilla" en Configuración → Productos.</div>`:''}
     </div>`;
   }catch(e){
@@ -1275,22 +1281,29 @@ async function importarPedidos(){
 function confirmarImport(){
   const {matcheados, fechaReg} = window._importData||{};
   if(!matcheados||matcheados.length===0) return;
+  let registradas=0;
   matcheados.forEach(({prod,cant})=>{
+    // Registrar cada unidad como entrada separada para poder borrar individualmente
+    // Si cant > 1, registramos una entrada por producto con esa cantidad
+    // pero guardamos el flag de importación para identificarlas
     if(prod.ventaDirecta){
       const descuento=parseFloat((prod.cantVentaDirecta*cant).toFixed(3));
       setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
       DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
-        sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,id:Date.now()+Math.random()});
+        sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
+        importado:true,id:Date.now()+Math.random()});
     } else {
       const sp=getPT(prod.ptKey);
       setPT(prod.ptKey,getPT(prod.ptKey)-cant);
       const sa=getPT(prod.ptKey);
-      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,sp,sa,id:Date.now()+Math.random()});
+      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
+        sp,sa,importado:true,id:Date.now()+Math.random()});
     }
+    registradas++;
   });
   saveDB();
   window._importData=null;
-  alert(`✅ Se registraron ${matcheados.length} productos correctamente.`);
+  alert(`✅ Se registraron ${registradas} productos correctamente.`);
   renderVentas();checkAlertas();
 }
 
