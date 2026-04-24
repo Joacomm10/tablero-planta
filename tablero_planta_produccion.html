@@ -1283,27 +1283,27 @@ function confirmarImport(){
   if(!matcheados||matcheados.length===0) return;
   let registradas=0;
   matcheados.forEach(({prod,cant})=>{
-    // Registrar cada unidad como entrada separada para poder borrar individualmente
-    // Si cant > 1, registramos una entrada por producto con esa cantidad
-    // pero guardamos el flag de importación para identificarlas
-    if(prod.ventaDirecta){
-      const descuento=parseFloat((prod.cantVentaDirecta*cant).toFixed(3));
-      setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
-      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
-        sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
-        importado:true,id:Date.now()+Math.random()});
-    } else {
-      const sp=getPT(prod.ptKey);
-      setPT(prod.ptKey,getPT(prod.ptKey)-cant);
-      const sa=getPT(prod.ptKey);
-      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
-        sp,sa,importado:true,id:Date.now()+Math.random()});
+    // Registrar UNA entrada por unidad para poder borrar individualmente
+    for(let i=0;i<cant;i++){
+      if(prod.ventaDirecta){
+        const descuento=parseFloat((prod.cantVentaDirecta).toFixed(3));
+        setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
+        DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:1,usuario:CU.nombre,
+          sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
+          importado:true,id:Date.now()+Math.random()});
+      } else {
+        const sp=getPT(prod.ptKey);
+        setPT(prod.ptKey,Math.max(0,getPT(prod.ptKey)-1));
+        const sa=getPT(prod.ptKey);
+        DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:1,usuario:CU.nombre,
+          sp,sa,importado:true,id:Date.now()+Math.random()});
+      }
+      registradas++;
     }
-    registradas++;
   });
   saveDB();
   window._importData=null;
-  alert(`✅ Se registraron ${registradas} productos correctamente.`);
+  alert(`✅ Se registraron ${registradas} unidades en ${matcheados.length} productos.`);
   renderVentas();checkAlertas();
 }
 
