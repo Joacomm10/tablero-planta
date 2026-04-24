@@ -452,14 +452,16 @@ function renderResumen(){
     ? limpiezas.reduce((a,p)=>a+(p.kg_out/p.kg_in*100),0)/limpiezas.length
     : 0;
   const totalPT=Object.values(DB.pt).reduce((a,v)=>a+v,0);
-  const totalCaidas=cal.reduce((a,r)=>a+r.caidas,0);
+  const totalCaidas=(DB.caidas||[]).filter(ff).reduce((a,r)=>a+r.cantidad,0);
   const totalPedidos=cal.reduce((a,r)=>a+r.pedidos,0);
   const totalErrPick=cal.reduce((a,r)=>a+r.errores,0);
-  const totalDev=cal.reduce((a,r)=>a+(r.devoluciones||0),0);
+  const totalDev=(DB.devoluciones||[]).filter(ff).reduce((a,r)=>a+r.cantidad,0);
+  const totalConsumoInt=(DB.consumoInterno||[]).filter(ff).reduce((a,r)=>a+r.cantidad,0);
   const totalVendidasPer=vents.reduce((a,v)=>a+v.unidades,0);
+  const totalBajas=totalVendidasPer+totalCaidas+totalDev;
   const pctError=totalPedidos>0?(totalErrPick/totalPedidos*100):0;
-  const pctCaidas=totalVendidasPer>0?(totalCaidas/totalVendidasPer*100):0;
-  const pctDev=totalVendidasPer>0?(totalDev/totalVendidasPer*100):0;
+  const pctCaidas=totalBajas>0?(totalCaidas/totalBajas*100):0;
+  const pctDev=totalBajas>0?(totalDev/totalBajas*100):0;
 
   // Stats por empleado
   const empStats={};
@@ -533,10 +535,13 @@ function renderResumen(){
       <div class="klabel">% error picking</div><div class="kval">${pctError.toFixed(1)}%</div><div class="ksub">${totalErrPick} err / ${totalPedidos} ped</div>
     </div>
     <div class="kcard ${pctCaidas<=1?'ok':pctCaidas<=3?'warn':'danger'}">
-      <div class="klabel">% caídas por venc.</div><div class="kval">${pctCaidas.toFixed(1)}%</div><div class="ksub">${totalCaidas} / ${totalVendidasPer} vendidas</div>
+      <div class="klabel">% caídas por venc.</div><div class="kval">${pctCaidas.toFixed(1)}%</div><div class="ksub">${totalCaidas} / ${totalBajas} unidades</div>
     </div>
     <div class="kcard ${pctDev<=1?'ok':pctDev<=3?'warn':'danger'}">
-      <div class="klabel">% devoluciones</div><div class="kval">${pctDev.toFixed(1)}%</div><div class="ksub">${totalDev} / ${totalVendidasPer} vendidas</div>
+      <div class="klabel">% devoluciones</div><div class="kval">${pctDev.toFixed(1)}%</div><div class="ksub">${totalDev} / ${totalBajas} unidades</div>
+    </div>
+    <div class="kcard">
+      <div class="klabel">Consumo interno</div><div class="kval">${totalConsumoInt}</div><div class="ksub">unidades período</div>
     </div>
   </div>
 
@@ -599,16 +604,20 @@ function buildRendimientosHTML(protDesvios,proc,ff){
 function renderCalidad(){
   const el=document.getElementById('calidad');
   const totalVendidas=DB.ventas.reduce((a,v)=>a+v.unidades,0);
-  const totalCaidas=DB.calidad.reduce((a,r)=>a+r.caidas,0);
   const totalPedidos=DB.calidad.reduce((a,r)=>a+r.pedidos,0);
   const totalErrPick=DB.calidad.reduce((a,r)=>a+r.errores,0);
-  const totalDev=DB.calidad.reduce((a,r)=>a+(r.devoluciones||0),0);
+  // Caídas y devoluciones ahora son registros individuales por producto
+  const totalCaidas=(DB.caidas||[]).reduce((a,r)=>a+r.cantidad,0);
+  const totalDev=(DB.devoluciones||[]).reduce((a,r)=>a+r.cantidad,0);
+  const totalConsumoInt=(DB.consumoInterno||[]).reduce((a,r)=>a+r.cantidad,0);
   const pctPick=totalPedidos>0?(totalErrPick/totalPedidos*100):0;
-  const pctCaidas=totalVendidas>0?(totalCaidas/totalVendidas*100):0;
-  const pctDev=totalVendidas>0?(totalDev/totalVendidas*100):0;
+  const totalBajas=totalVendidas+totalCaidas+totalDev;
+  const pctCaidas=totalBajas>0?(totalCaidas/totalBajas*100):0;
+  const pctDev=totalBajas>0?(totalDev/totalBajas*100):0;
+  const prodOpts=DB.productos.map(p=>`<option value="${p.ptKey}">${p.nombre} (stock: ${getPT(p.ptKey)}u.)</option>`).join('');
 
   el.innerHTML=`
-  <p class="sechead">Calidad</p>
+  <p class="sechead">Calidad y consumo interno</p>
   <div class="kgrid" style="margin-bottom:1.25rem">
     <div class="kcard ${pctPick<=2?'ok':pctPick<=5?'warn':'danger'}">
       <div class="klabel">% error picking</div><div class="kval">${pctPick.toFixed(1)}%</div>
@@ -616,58 +625,244 @@ function renderCalidad(){
     </div>
     <div class="kcard ${pctCaidas<=1?'ok':pctCaidas<=3?'warn':'danger'}">
       <div class="klabel">% caídas por venc.</div><div class="kval">${pctCaidas.toFixed(1)}%</div>
-      <div class="ksub">${totalCaidas} caídas / ${totalVendidas} vendidas</div>
+      <div class="ksub">${totalCaidas} / ${totalBajas} unidades</div>
     </div>
     <div class="kcard ${pctDev<=1?'ok':pctDev<=3?'warn':'danger'}">
-      <div class="klabel">% devoluciones mal estado</div><div class="kval">${pctDev.toFixed(1)}%</div>
-      <div class="ksub">${totalDev} dev. / ${totalVendidas} vendidas</div>
+      <div class="klabel">% devoluciones</div><div class="kval">${pctDev.toFixed(1)}%</div>
+      <div class="ksub">${totalDev} / ${totalBajas} unidades</div>
+    </div>
+    <div class="kcard">
+      <div class="klabel">Consumo interno</div><div class="kval">${totalConsumoInt}</div>
+      <div class="ksub">unidades período</div>
     </div>
   </div>
-  <div class="card">
-    <div class="ctitle">Registrar</div>
-    <div class="frow">
-      <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="q-fecha" value="${today()}"></div>
-      <div class="fg" style="max-width:100px"><label>Caídas venc.</label><input type="number" id="q-caidas" placeholder="0"></div>
-      <div class="fg" style="max-width:100px"><label>Pedidos env.</label><input type="number" id="q-pedidos" placeholder="0"></div>
-      <div class="fg" style="max-width:100px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div>
-      <div class="fg" style="max-width:100px"><label>Devoluciones</label><input type="number" id="q-devoluciones" placeholder="0"></div>
-      <div class="fg"><label>Notas</label><input type="text" id="q-notas" placeholder="Opcional"></div>
-    </div>
-    <button class="btn btn-primary" onclick="addCalidad()">+ Registrar</button>
+
+  <div class="modo-tabs" style="max-width:600px">
+    <button class="mtab active" onclick="showCalidadTab('kpis',this)">KPIs / Picking</button>
+    <button class="mtab" onclick="showCalidadTab('caidas',this)">Caídas venc.</button>
+    <button class="mtab" onclick="showCalidadTab('devoluciones',this)">Devoluciones</button>
+    <button class="mtab" onclick="showCalidadTab('consumo',this)">Consumo interno</button>
   </div>
-  <div class="card">
-    <div class="ctitle">Historial de calidad</div>
-    ${DB.calidad.length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
-      <thead><tr><th>Fecha</th><th>Caídas</th><th>Pedidos</th><th>Err. pick.</th><th>% pick.</th><th>Devoluciones</th><th>Notas</th><th></th></tr></thead>
-      <tbody>${DB.calidad.slice().reverse().map((r,i)=>{
-        const idx=DB.calidad.length-1-i;
-        const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';
-        const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';
-        return `<tr><td>${r.fecha}</td><td>${r.caidas}</td><td>${r.pedidos}</td><td>${r.errores}</td>
-          <td><span class="badge ${dc}">${pc}%</span></td>
-          <td>${r.devoluciones||0}</td>
-          <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
-          <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCalidad(${idx})">x</button>`:''}</td></tr>`;
-      }).join('')}</tbody>
-    </table></div>`}
+
+  <div id="cal-kpis">
+    <div class="card">
+      <div class="ctitle">Registrar KPIs diarios (picking y pedidos)</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="q-fecha" value="${today()}"></div>
+        <div class="fg" style="max-width:100px"><label>Pedidos env.</label><input type="number" id="q-pedidos" placeholder="0"></div>
+        <div class="fg" style="max-width:100px"><label>Err. picking</label><input type="number" id="q-errores" placeholder="0"></div>
+        <div class="fg"><label>Notas</label><input type="text" id="q-notas" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="addCalidad()">+ Registrar</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">Historial KPIs</div>
+      ${DB.calidad.length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
+        <thead><tr><th>Fecha</th><th>Pedidos</th><th>Err. pick.</th><th>% pick.</th><th>Notas</th><th></th></tr></thead>
+        <tbody>${DB.calidad.slice().reverse().map((r,i)=>{
+          const idx=DB.calidad.length-1-i;
+          const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';
+          const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';
+          return `<tr><td>${r.fecha}</td><td>${r.pedidos}</td><td>${r.errores}</td>
+            <td><span class="badge ${dc}">${pc}%</span></td>
+            <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCalidad(${idx})">x</button>`:''}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div id="cal-caidas" style="display:none">
+    <div class="card">
+      <div class="ctitle">Registrar caída por vencimiento</div>
+      <div class="info-box">Descuenta automáticamente del stock de producto terminado.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="caida-fecha" value="${today()}"></div>
+        <div class="fg"><label>Producto</label><select id="caida-prod">${prodOpts}</select></div>
+        <div class="fg" style="max-width:100px"><label>Cantidad</label><input type="number" id="caida-cant" placeholder="0" min="1"></div>
+        <div class="fg"><label>Notas</label><input type="text" id="caida-notas" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="addCaida()">+ Registrar caída</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">Historial caídas</div>
+      ${(DB.caidas||[]).length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Notas</th><th>Usuario</th><th></th></tr></thead>
+        <tbody>${(DB.caidas||[]).slice().reverse().map((r,i)=>{
+          const idx=(DB.caidas||[]).length-1-i;
+          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+            <td style="color:#888;font-size:11px">${r.notas||'-'}</td><td style="color:#888">${r.usuario||'-'}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCaida(${idx})">x</button>`:''}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div id="cal-devoluciones" style="display:none">
+    <div class="card">
+      <div class="ctitle">Registrar devolución por mal estado</div>
+      <div class="info-box">Descuenta automáticamente del stock de producto terminado. Las devoluciones se descartan.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="dev-fecha" value="${today()}"></div>
+        <div class="fg"><label>Producto</label><select id="dev-prod">${prodOpts}</select></div>
+        <div class="fg" style="max-width:100px"><label>Cantidad</label><input type="number" id="dev-cant" placeholder="0" min="1"></div>
+        <div class="fg"><label>Notas</label><input type="text" id="dev-notas" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="addDevolucion()">+ Registrar devolución</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">Historial devoluciones</div>
+      ${(DB.devoluciones||[]).length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Notas</th><th>Usuario</th><th></th></tr></thead>
+        <tbody>${(DB.devoluciones||[]).slice().reverse().map((r,i)=>{
+          const idx=(DB.devoluciones||[]).length-1-i;
+          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+            <td style="color:#888;font-size:11px">${r.notas||'-'}</td><td style="color:#888">${r.usuario||'-'}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delDevolucion(${idx})">x</button>`:''}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div id="cal-consumo" style="display:none">
+    <div class="card">
+      <div class="ctitle">Registrar consumo interno</div>
+      <div class="info-box">Productos consumidos por el personal o la gerencia. Descuenta del stock de PT.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="ci-fecha" value="${today()}"></div>
+        <div class="fg"><label>Producto</label><select id="ci-prod">${prodOpts}</select></div>
+        <div class="fg" style="max-width:100px"><label>Cantidad</label><input type="number" id="ci-cant" placeholder="0" min="1"></div>
+        <div class="fg"><label>Quién consumió</label><input type="text" id="ci-quien" placeholder="Ej: Gerencia"></div>
+        <div class="fg"><label>Notas</label><input type="text" id="ci-notas" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="addConsumoInterno()">+ Registrar consumo</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">Historial consumo interno</div>
+      ${(DB.consumoInterno||[]).length===0?'<p style="color:#888;font-size:12px">Sin registros.</p>':`<div style="overflow-x:auto"><table>
+        <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Quién</th><th>Notas</th><th></th></tr></thead>
+        <tbody>${(DB.consumoInterno||[]).slice().reverse().map((r,i)=>{
+          const idx=(DB.consumoInterno||[]).length-1-i;
+          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+            <td style="color:#888">${r.quien||'-'}</td>
+            <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delConsumoInterno(${idx})">x</button>`:''}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    </div>
   </div>`;
+}
+
+function showCalidadTab(t,el){
+  ['kpis','caidas','devoluciones','consumo'].forEach(id=>{
+    document.getElementById('cal-'+id).style.display=t===id?'':'none';
+  });
+  document.querySelectorAll('#calidad .mtab').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
 }
 
 function addCalidad(){
   const fecha=document.getElementById('q-fecha').value;
   if(!fecha){alert('Ingresá la fecha.');return;}
   DB.calidad.push({fecha,
-    caidas:parseInt(document.getElementById('q-caidas').value)||0,
+    caidas:0, // ya no se usa acá
     pedidos:parseInt(document.getElementById('q-pedidos').value)||0,
     errores:parseInt(document.getElementById('q-errores').value)||0,
-    devoluciones:parseInt(document.getElementById('q-devoluciones').value)||0,
+    devoluciones:0, // ya no se usa acá
     notas:document.getElementById('q-notas').value,
     usuario:CU.nombre,id:Date.now()});
   saveDB();
-  ['q-caidas','q-pedidos','q-errores','q-devoluciones','q-notas'].forEach(id=>document.getElementById(id).value='');
+  ['q-pedidos','q-errores','q-notas'].forEach(id=>document.getElementById(id).value='');
   renderCalidad();
 }
-function delCalidad(i){if(CU.role!=='gerente')return;DB.calidad.splice(i,1);saveDB();renderResumen();}
+
+function addCaida(){
+  const fecha=document.getElementById('caida-fecha').value;
+  const ptKey=document.getElementById('caida-prod').value;
+  const cant=parseInt(document.getElementById('caida-cant').value)||0;
+  const notas=document.getElementById('caida-notas').value;
+  if(!fecha||cant<=0){alert('Completá fecha y cantidad.');return;}
+  const prod=DB.productos.find(p=>p.ptKey===ptKey);
+  if(getPT(ptKey)<cant){if(!confirm(`Stock insuficiente: ${getPT(ptKey)} u. ¿Continuás?`))return;}
+  setPT(ptKey,Math.max(0,getPT(ptKey)-cant));
+  if(!DB.caidas) DB.caidas=[];
+  DB.caidas.push({fecha,producto:prod?.nombre||ptKey,ptKey,cantidad:cant,notas,usuario:CU.nombre,id:Date.now()});
+  saveDB();
+  document.getElementById('caida-cant').value='';
+  document.getElementById('caida-notas').value='';
+  renderCalidad();
+  showCalidadTab('caidas',null);
+  document.querySelectorAll('#calidad .mtab')[1].classList.add('active');
+}
+
+function delCaida(i){
+  if(CU.role!=='gerente') return;
+  const r=(DB.caidas||[])[i];
+  if(r) setPT(r.ptKey, getPT(r.ptKey)+r.cantidad);
+  DB.caidas.splice(i,1); saveDB(); renderCalidad();
+  showCalidadTab('caidas',null);
+  document.querySelectorAll('#calidad .mtab')[1].classList.add('active');
+}
+
+function addDevolucion(){
+  const fecha=document.getElementById('dev-fecha').value;
+  const ptKey=document.getElementById('dev-prod').value;
+  const cant=parseInt(document.getElementById('dev-cant').value)||0;
+  const notas=document.getElementById('dev-notas').value;
+  if(!fecha||cant<=0){alert('Completá fecha y cantidad.');return;}
+  const prod=DB.productos.find(p=>p.ptKey===ptKey);
+  if(getPT(ptKey)<cant){if(!confirm(`Stock insuficiente: ${getPT(ptKey)} u. ¿Continuás?`))return;}
+  setPT(ptKey,Math.max(0,getPT(ptKey)-cant));
+  if(!DB.devoluciones) DB.devoluciones=[];
+  DB.devoluciones.push({fecha,producto:prod?.nombre||ptKey,ptKey,cantidad:cant,notas,usuario:CU.nombre,id:Date.now()});
+  saveDB();
+  document.getElementById('dev-cant').value='';
+  document.getElementById('dev-notas').value='';
+  renderCalidad();
+  showCalidadTab('devoluciones',null);
+  document.querySelectorAll('#calidad .mtab')[2].classList.add('active');
+}
+
+function delDevolucion(i){
+  if(CU.role!=='gerente') return;
+  const r=(DB.devoluciones||[])[i];
+  if(r) setPT(r.ptKey, getPT(r.ptKey)+r.cantidad);
+  DB.devoluciones.splice(i,1); saveDB(); renderCalidad();
+  showCalidadTab('devoluciones',null);
+  document.querySelectorAll('#calidad .mtab')[2].classList.add('active');
+}
+
+function addConsumoInterno(){
+  const fecha=document.getElementById('ci-fecha').value;
+  const ptKey=document.getElementById('ci-prod').value;
+  const cant=parseInt(document.getElementById('ci-cant').value)||0;
+  const quien=document.getElementById('ci-quien').value;
+  const notas=document.getElementById('ci-notas').value;
+  if(!fecha||cant<=0){alert('Completá fecha y cantidad.');return;}
+  const prod=DB.productos.find(p=>p.ptKey===ptKey);
+  if(getPT(ptKey)<cant){if(!confirm(`Stock insuficiente: ${getPT(ptKey)} u. ¿Continuás?`))return;}
+  setPT(ptKey,Math.max(0,getPT(ptKey)-cant));
+  if(!DB.consumoInterno) DB.consumoInterno=[];
+  DB.consumoInterno.push({fecha,producto:prod?.nombre||ptKey,ptKey,cantidad:cant,quien,notas,usuario:CU.nombre,id:Date.now()});
+  saveDB();
+  document.getElementById('ci-cant').value='';
+  document.getElementById('ci-quien').value='';
+  document.getElementById('ci-notas').value='';
+  renderCalidad();
+  showCalidadTab('consumo',null);
+  document.querySelectorAll('#calidad .mtab')[3].classList.add('active');
+}
+
+function delConsumoInterno(i){
+  if(CU.role!=='gerente') return;
+  const r=(DB.consumoInterno||[])[i];
+  if(r) setPT(r.ptKey, getPT(r.ptKey)+r.cantidad);
+  DB.consumoInterno.splice(i,1); saveDB(); renderCalidad();
+  showCalidadTab('consumo',null);
+  document.querySelectorAll('#calidad .mtab')[3].classList.add('active');
+}
+
+function delCalidad(i){if(CU.role!=='gerente')return;DB.calidad.splice(i,1);saveDB();renderCalidad();}
 
 // ============================================================
 // INGRESO
@@ -1701,6 +1896,9 @@ function migrateDB(){
   if(!DB.teorico) DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
   if(!DB.usuarios) DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
   if(!DB.empleados) DB.empleados=[];
+  if(!DB.caidas) DB.caidas=[];
+  if(!DB.devoluciones) DB.devoluciones=[];
+  if(!DB.consumoInterno) DB.consumoInterno=[];
   // Migrar productos: actualizar ventaDirecta, cantVentaDirecta, stockNombre desde defaults
   if(!DB.productos) DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
   else {
