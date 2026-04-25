@@ -258,7 +258,7 @@ const SB_RECORD_ID = 'planta_v5';
 
 function defaultDB(){
   return {
-    ingresos:[],procesos:[],ventas:[],calidad:[],
+    ingresos:[],procesos:[],ventas:[],calidad:[],lotes:[],
     ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
@@ -366,6 +366,85 @@ function checkPerm(tab){
 }
 
 // ============================================================
+// LOTES
+// ============================================================
+function generarLoteId(proteina,fecha){
+  const d=fecha?new Date(fecha+'T00:00:00'):new Date();
+  const base=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  const existentes=(DB.lotes||[]).filter(l=>l.lote_id.startsWith(base)&&l.proteina===proteina);
+  return base+'-'+String.fromCharCode(65+existentes.length);
+}
+
+function registrarLote(loteId,proteina,fecha,kgIn,substock_origen){
+  if(!DB.lotes)DB.lotes=[];
+  if(!DB.lotes.find(l=>l.lote_id===loteId&&l.proteina===proteina)){
+    DB.lotes.push({
+      lote_id:loteId,proteina,fecha,kg_inicial:kgIn,
+      substock_origen,fecha_elab:fecha,
+      venc_heladera:calcVenc(fecha,2),
+      venc_freezer:calcVenc(fecha,6),
+      id:Date.now()
+    });
+  }
+}
+
+function calcVenc(fechaStr,meses){
+  const d=new Date(fechaStr+'T00:00:00');
+  d.setMonth(d.getMonth()+meses);
+  return d.toISOString().slice(0,10);
+}
+
+function imprimirEtiquetaLote(loteId){
+  const lote=(DB.lotes||[]).find(l=>l.lote_id===loteId);
+  let proteina=loteId,fechaElab='-',vencH='-',vencF='-',kg='-',substock='-';
+  if(lote){
+    proteina=lote.proteina;
+    fechaElab=lote.fecha_elab;
+    vencH=lote.venc_heladera;
+    vencF=lote.venc_freezer;
+    kg=fmt(lote.kg_inicial,2)+' kg';
+    const ssDef=findSSdef(lote.substock_origen);
+    substock=ssDef?ssDef.label:lote.substock_origen||'';
+  }
+  const copias=parseInt(prompt('¿Cuántas etiquetas querés imprimir?','1'))||1;
+  if(copias<=0)return;
+  let etiquetasHTML='';
+  for(let i=0;i<copias;i++){
+    etiquetasHTML+=`<div class="etiqueta">
+      <div class="et-header">
+        <span class="et-lote">${loteId}</span>
+        <span class="et-prot">${proteina}</span>
+      </div>
+      <div class="et-sub">${substock}</div>
+      <div class="et-row"><span class="et-label">Elaboración:</span><span class="et-val">${fechaElab}</span></div>
+      <div class="et-row"><span class="et-label">Heladera (2m):</span><span class="et-val et-warn">${vencH}</span></div>
+      <div class="et-row"><span class="et-label">Freezer (6m):</span><span class="et-val et-ok">${vencF}</span></div>
+      <div class="et-row"><span class="et-label">Cantidad:</span><span class="et-val">${kg}</span></div>
+    </div>`;
+  }
+  const win=window.open('','_blank','width=500,height=400');
+  win.document.write(`<!DOCTYPE html><html><head><title>Etiqueta ${loteId}</title>
+  <style>
+    @page{size:120mm 50mm;margin:0}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff}
+    .etiqueta{width:120mm;height:50mm;padding:3mm 4mm;border:1px solid #ccc;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}
+    .et-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding-bottom:2mm;margin-bottom:1.5mm}
+    .et-lote{font-size:14pt;font-weight:700;color:#0c447c;letter-spacing:.04em}
+    .et-prot{font-size:8pt;font-weight:500;color:#444;text-align:right}
+    .et-sub{font-size:7.5pt;color:#666;margin-bottom:1.5mm;font-style:italic}
+    .et-row{display:flex;justify-content:space-between;align-items:center;font-size:7pt;margin-bottom:1mm}
+    .et-label{color:#888;font-weight:500}
+    .et-val{font-weight:600;color:#1a1a1a}
+    .et-warn{color:#854f0b}
+    .et-ok{color:#085041}
+  </style></head><body>${etiquetasHTML}
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`);
+  win.document.close();
+}
+
+// ============================================================
 // PANEL LATERAL — DETALLE PROCESO
 // ============================================================
 function abrirPanel(idx){
@@ -379,25 +458,17 @@ function abrirPanel(idx){
   const dev=teoVal!==null?rend-teoVal:null;
   const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
   const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
-
-  // Lote info
   const lote=p.lote_id?(DB.lotes||[]).find(l=>l.lote_id===p.lote_id):null;
 
-  // Distribución para limpieza
   let distsHTML='';
   if(p.tipo==='limpieza'&&p.dists&&Object.keys(p.dists).length>0){
-    distsHTML=`<div style="margin-top:4px">`;
-    Object.entries(p.dists).forEach(([key,val])=>{
-      if(!val||val===0)return;
+    const filas=Object.entries(p.dists).filter(([,v])=>v&&v>0).map(([key,val])=>{
       const ssDef=findSSdef(key);
       const label=ssDef?ssDef.label:key;
       const tipo=ssDef?.type||'kg';
-      distsHTML+=`<div class="det-dist-item">
-        <span style="color:#444">${label}</span>
-        <strong>${tipo==='u'?Math.round(val)+' u.':fmt(val,2)+' kg'}</strong>
-      </div>`;
-    });
-    distsHTML+=`</div>`;
+      return `<div class="det-dist-item"><span>${label}</span><strong>${tipo==='u'?Math.round(val)+' u.':fmt(val,2)+' kg'}</strong></div>`;
+    }).join('');
+    if(filas) distsHTML=`<div style="margin:6px 0">${filas}</div>`;
   }
 
   document.getElementById('panel-title').innerHTML=
@@ -409,54 +480,42 @@ function abrirPanel(idx){
       <div class="det-row"><span class="det-label">Responsable</span><span class="det-val">${p.responsable||'—'}</span></div>
       <div class="det-row"><span class="det-label">Registrado por</span><span class="det-val">${p.usuario||'—'}</span></div>
     </div>
-
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:8px">Movimiento de materiales</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:8px">Movimiento</div>
     <div style="margin-bottom:16px">
       <div class="det-row"><span class="det-label">Origen</span><span class="det-val">${p.origen||'—'}</span></div>
-      <div class="det-row"><span class="det-label">Destino</span><span class="det-val">${p.tipo==='limpieza'&&distsHTML?'Ver distribución ↓':p.destino||'—'}</span></div>
-      ${distsHTML?`<div style="margin-top:4px;margin-bottom:4px"><div style="font-size:10px;color:#888;margin-bottom:4px">Distribución del limpio:</div>${distsHTML}</div>`:''}
+      <div class="det-row"><span class="det-label">Destino</span><span class="det-val">${p.destino||'—'}</span></div>
+      ${distsHTML?`<div style="font-size:10px;color:#888;margin:4px 0 4px">Distribución del limpio:</div>${distsHTML}`:''}
       <div class="det-row"><span class="det-label">Entrada</span><span class="det-val">${fmt(p.kg_in,3)} kg</span></div>
       <div class="det-row"><span class="det-label">Salida</span><span class="det-val">${fmt(p.kg_out,3)} kg</span></div>
-      ${p.tipo==='armado'?`<div class="det-row"><span class="det-label">Unidades armadas</span><span class="det-val">${p.unidades||0} u.</span></div>`:''}
+      ${p.tipo==='armado'?`<div class="det-row"><span class="det-label">Unidades</span><span class="det-val">${p.unidades||0} u.</span></div>`:''}
       <div class="det-row">
         <span class="det-label">${p.tipo==='limpieza'?'Desperdicio':p.tipo==='armado'?'Recorte':'Merma'}</span>
         <span class="det-val" style="color:#854f0b">${fmt(p.kg_in-p.kg_out,3)} kg</span>
       </div>
     </div>
-
+    ${teoVal!==null?`
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:8px">Rendimiento</div>
     <div style="margin-bottom:16px">
-      <div class="det-row">
-        <span class="det-label">Rendimiento real</span>
-        <span class="det-val">${p.tipo==='armado'?'—':rend.toFixed(1)+'%'}</span>
-      </div>
-      ${teoVal!==null?`<div class="det-row">
-        <span class="det-label">Teórico</span>
-        <span class="det-val">${teoVal.toFixed(1)}%</span>
-      </div>
-      <div class="det-row">
-        <span class="det-label">Desvío</span>
-        <span class="det-val"><span class="badge ${dc}">${dev>=0?'+':''}${dev.toFixed(1)}%</span></span>
-      </div>`:''}
-    </div>
-
+      <div class="det-row"><span class="det-label">Real</span><span class="det-val">${rend.toFixed(1)}%</span></div>
+      <div class="det-row"><span class="det-label">Teórico</span><span class="det-val">${teoVal.toFixed(1)}%</span></div>
+      <div class="det-row"><span class="det-label">Desvío</span><span class="det-val"><span class="badge ${dc}">${dev>=0?'+':''}${dev.toFixed(1)}%</span></span></div>
+    </div>`:''}
     ${lote?`
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:8px">Lote</div>
-    <div style="background:#e6f1fb;border-radius:8px;padding:12px;margin-bottom:16px">
+    <div style="background:#e6f1fb;border-radius:8px;padding:12px;margin-bottom:8px">
       <div style="font-size:16px;font-weight:700;color:#0c447c;margin-bottom:8px">${lote.lote_id}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
         <div><div style="color:#888;margin-bottom:2px">Elaboración</div><strong>${lote.fecha_elab}</strong></div>
-        <div><div style="color:#888;margin-bottom:2px">Kg MP inicial</div><strong>${fmt(lote.kg_inicial,2)} kg</strong></div>
+        <div><div style="color:#888;margin-bottom:2px">Kg inicial</div><strong>${fmt(lote.kg_inicial,2)} kg</strong></div>
         <div><div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div><strong>${lote.venc_heladera}</strong></div>
         <div><div style="color:#085041;margin-bottom:2px">Venc. freezer</div><strong>${lote.venc_freezer}</strong></div>
       </div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta de lote</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>
     </div>`:`
-    <div style="background:#f0efe8;border-radius:8px;padding:10px 12px;font-size:11px;color:#888;margin-bottom:16px">
-      Este proceso no tiene lote asignado.
+    <div style="background:#f0efe8;border-radius:8px;padding:10px 12px;font-size:11px;color:#888">
+      Sin lote asignado.
     </div>`}
   `;
-
   document.getElementById('panel-overlay').classList.add('open');
   document.getElementById('panel-lateral').classList.add('open');
 }
@@ -998,25 +1057,45 @@ function renderIngreso(){
   <p class="sechead">Registrar ingreso de materia prima</p>
   <div class="card">
     <div class="frow">
-      <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="i-fecha" value="${today()}"></div>
-      <div class="fg"><label>Proteína</label><select id="i-prot">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="i-fecha" value="${today()}" oninput="actualizarLotePreview()"></div>
+      <div class="fg"><label>Proteína</label><select id="i-prot" onchange="actualizarLotePreview()">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div>
       <div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div>
       <div class="fg"><label>Proveedor</label><input type="text" id="i-prov" placeholder="Opcional"></div>
+    </div>
+    <div class="frow" style="align-items:center">
+      <div class="fg" style="max-width:180px"><label>N° de lote <span style="font-size:10px;color:#888">(auto)</span></label>
+        <input type="text" id="i-lote" placeholder="Ej: 260425-A">
+      </div>
+      <div id="i-lote-prev" style="font-size:11px;color:#aaa;margin-top:16px"></div>
     </div>
     <button class="btn btn-primary" onclick="addIngreso()">+ Agregar ingreso</button>
   </div>
   <div class="card">
     <div class="ctitle">Ingresos registrados</div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Usuario</th><th></th></tr></thead>
-      <tbody>${DB.ingresos.length===0?'<tr><td colspan="8" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':
+      <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Lote</th><th>Usuario</th><th></th></tr></thead>
+      <tbody>${DB.ingresos.length===0?'<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':
       DB.ingresos.slice().reverse().map((r,i)=>{const idx=DB.ingresos.length-1-i;
-        return `<tr><td>${r.fecha}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td><td style="color:#888">${r.usuario||'-'}</td>
+        return `<tr><td>${r.fecha}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td>
+        <td>${r.lote_id?`<span class="badge binfo">${r.lote_id}</span>`:'<span style="color:#ccc;font-size:11px">—</span>'}</td>
+        <td style="color:#888">${r.usuario||'-'}</td>
         <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delIngreso(${idx})">x</button>`:''}</td></tr>`;
       }).join('')}</tbody>
     </table></div>
   </div>`;
+  setTimeout(()=>actualizarLotePreview(),0);
+}
+
+function actualizarLotePreview(){
+  const fecha=document.getElementById('i-fecha')?.value;
+  const prot=document.getElementById('i-prot')?.value;
+  const loteInput=document.getElementById('i-lote');
+  const prev=document.getElementById('i-lote-prev');
+  if(!fecha||!prot||!loteInput)return;
+  const sugerido=generarLoteId(prot,fecha);
+  if(!loteInput.value)loteInput.value=sugerido;
+  if(prev)prev.textContent='Sugerido: '+sugerido;
 }
 
 function addIngreso(){
@@ -1025,14 +1104,17 @@ function addIngreso(){
   const kg=parseFloat(document.getElementById('i-kg').value);
   const costo=parseFloat(document.getElementById('i-costo').value)||0;
   const prov=document.getElementById('i-prov').value;
+  const loteId=document.getElementById('i-lote')?.value.trim()||generarLoteId(proteina,fecha);
   if(!fecha||isNaN(kg)||kg<=0){alert('Completá fecha, proteína y kg bruto.');return;}
-  DB.ingresos.push({fecha,proteina,kg_bruto:kg,costo_kg:costo,proveedor:prov,usuario:CU.nombre,id:Date.now()});
+  DB.ingresos.push({fecha,proteina,kg_bruto:kg,costo_kg:costo,proveedor:prov,usuario:CU.nombre,lote_id:loteId,id:Date.now()});
   const mpSS=DB.substocks[proteina]?.find(s=>s.estado==='mp');
   if(mpSS)setSS(mpSS.key,getSS(mpSS.key)+kg);
+  registrarLote(loteId,proteina,fecha,kg,mpSS?.key||'');
   saveDB();
   document.getElementById('i-kg').value='';
   document.getElementById('i-costo').value='';
   document.getElementById('i-prov').value='';
+  document.getElementById('i-lote').value='';
   renderIngreso();
 }
 
@@ -1085,7 +1167,7 @@ function renderProceso(){
   </div>
   <div id="proceso-form"></div>
   <div class="card">
-    <div class="ctitle">Historial de procesos</div>
+    <div class="ctitle">Historial de procesos <span style="font-size:10px;color:#aaa;font-weight:normal">— hacé click en una fila para ver el detalle</span></div>
     <div style="overflow-x:auto"><table>
       <thead><tr><th>Fecha</th><th>Proteína</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
       <tbody>${histHTML}</tbody>
@@ -1120,6 +1202,9 @@ function renderProcesoForm(){
       </div>
       <div class="frow">
         ${respField}
+        <div class="fg" style="max-width:190px"><label>Lote <span style="font-size:10px;color:#888">(heredar del ingreso)</span></label>
+          <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
+        </div>
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Distribuí lo limpio entre los sub-stocks (entrada − desperdicio):</div>
       <div class="frow">${subsDestino.map(s=>`
@@ -1153,6 +1238,9 @@ function renderProcesoForm(){
       <div class="frow">
         <div class="fg" style="max-width:110px"><label>Kg a cocinar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div>
         <div class="fg" style="max-width:110px"><label>Kg cocidos resultado</label><input type="number" id="pf-kgout" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div>
+        <div class="fg" style="max-width:190px"><label>Lote <span style="font-size:10px;color:#888">(heredar)</span></label>
+          <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
+        </div>
       </div>
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoCoccion()">+ Registrar cocción</button>
@@ -1331,6 +1419,7 @@ function addProcesoLimpieza(){
   const kgin=parseFloat(document.getElementById('pf-kgin').value);
   const kdesp=parseFloat(document.getElementById('pf-desp').value)||0;
   const resp=document.getElementById('pf-resp')?.value||'';
+  const loteId=document.getElementById('pf-lote')?.value||'';
   if(!fecha||isNaN(kgin)||kgin<=0){alert('Completá fecha y kg entrada.');return;}
   const subs=DB.substocks[activeProt]?.filter(s=>s.estado==='crudo'||s.estado==='lpu')||[];
   const dists={};
@@ -1338,8 +1427,10 @@ function addProcesoLimpieza(){
   const mpSS=DB.substocks[activeProt]?.find(s=>s.estado==='mp');
   if(mpSS)setSS(mpSS.key,getSS(mpSS.key)-kgin);
   subs.forEach(s=>setSS(s.key,getSS(s.key)+(dists[s.key]||0)));
-  DB.procesos.push({fecha,proteina:activeProt,tipo:'limpieza',kg_in:kgin,kg_out:kgin-kdesp,kg_desperdicio:kdesp,
-    dists,origen:'MP entera',destino:subs.map(s=>s.label).join(' / '),responsable:resp,usuario:CU.nombre,id:Date.now()});
+  const rec={fecha,proteina:activeProt,tipo:'limpieza',kg_in:kgin,kg_out:kgin-kdesp,kg_desperdicio:kdesp,
+    dists,origen:'MP entera',destino:subs.map(s=>s.label).join(' / '),responsable:resp,usuario:CU.nombre,id:Date.now()};
+  if(loteId)rec.lote_id=loteId;
+  DB.procesos.push(rec);
   saveDB();renderProceso();checkAlertas();
 }
 
@@ -1350,14 +1441,17 @@ function addProcesoCoccion(){
   const kgin=parseFloat(document.getElementById('pf-kgin').value);
   const kgout=parseFloat(document.getElementById('pf-kgout').value);
   const resp=document.getElementById('pf-resp')?.value||'';
+  const loteId=document.getElementById('pf-lote')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(kgout)||kgin<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);const ssD=findSSdef(destino);
   if(getSS(origen)<kgin){if(!confirm(`Stock insuficiente: hay ${fmt(getSS(origen),2)} kg. ¿Continuás?`))return;}
   setSS(origen,getSS(origen)-kgin);
   setSS(destino,getSS(destino)+kgout);
-  DB.procesos.push({fecha,proteina:activeProt,tipo:'coccion',kg_in:kgin,kg_out:kgout,kg_desperdicio:kgin-kgout,
+  const rec={fecha,proteina:activeProt,tipo:'coccion',kg_in:kgin,kg_out:kgout,kg_desperdicio:kgin-kgout,
     origen:ssO?.label||'',destino:ssD?.label||'',substock_origen:origen,substock_destino:destino,
-    responsable:resp,usuario:CU.nombre,id:Date.now()});
+    responsable:resp,usuario:CU.nombre,id:Date.now()};
+  if(loteId)rec.lote_id=loteId;
+  DB.procesos.push(rec);
   saveDB();renderProceso();checkAlertas();
 }
 
@@ -1859,6 +1953,11 @@ function renderAdmin(){
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
+  <div class="modo-tabs" style="max-width:500px;margin-bottom:1rem">
+    <button class="mtab active" onclick="showAdminTab('general',this)">General</button>
+    <button class="mtab" onclick="showAdminTab('lotes',this)">🏷️ Lotes</button>
+  </div>
+  <div id="admin-general">
   <div class="card">
     <div class="ctitle">Empleados</div>
     <div class="info-box">Los empleados que cargues acá aparecen como opciones en el campo "Responsable" de cada proceso.</div>
@@ -1918,7 +2017,62 @@ function renderAdmin(){
     <div class="ctitle" style="color:#a32d2d">Zona de riesgo</div>
     <button class="btn btn-danger" onclick="resetDB()">Resetear base de datos</button>
     <div style="font-size:11px;color:#888;margin-top:8px">Elimina todos los registros históricos. No se puede deshacer.</div>
-  </div>`;
+  </div>
+  </div>
+  <div id="admin-lotes" style="display:none"></div>`;
+}
+
+function showAdminTab(t,el){
+  document.getElementById('admin-general').style.display=t==='general'?'':'none';
+  document.getElementById('admin-lotes').style.display=t==='lotes'?'':'none';
+  document.querySelectorAll('#admin .mtab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(t==='lotes')renderAdminLotes();
+}
+
+function renderAdminLotes(){
+  const el=document.getElementById('admin-lotes');
+  if(!el)return;
+  const lotes=(DB.lotes||[]).slice().sort((a,b)=>b.lote_id.localeCompare(a.lote_id));
+  if(lotes.length===0){
+    el.innerHTML=`<div class="card"><p style="color:#888;font-size:12px">No hay lotes registrados aún. Se crean automáticamente al ingresar MP.</p></div>`;
+    return;
+  }
+  const hoy=new Date().toISOString().slice(0,10);
+  const en7=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+  el.innerHTML=lotes.map(lote=>{
+    const procesos=(DB.procesos||[]).filter(p=>p.lote_id===lote.lote_id);
+    const hVenc=lote.venc_heladera<hoy?'bdanger':lote.venc_heladera<=en7?'bwarn':'bok';
+    const fVenc=lote.venc_freezer<hoy?'bdanger':'bok';
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <span style="font-size:15px;font-weight:700;color:#0c447c">${lote.lote_id}</span>
+          <span style="margin-left:10px;font-size:12px;color:#666">${lote.proteina}</span>
+        </div>
+        <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:12px;font-size:11px">
+        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px"><div style="color:#888;margin-bottom:2px">Elaboración</div><strong>${lote.fecha_elab}</strong></div>
+        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px"><div style="color:#888;margin-bottom:2px">Kg inicial</div><strong>${fmt(lote.kg_inicial,2)} kg</strong></div>
+        <div style="padding:6px 8px;background:#faeeda;border-radius:6px"><div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div><span class="badge ${hVenc}">${lote.venc_heladera}</span></div>
+        <div style="padding:6px 8px;background:#e1f5ee;border-radius:6px"><div style="color:#085041;margin-bottom:2px">Venc. freezer</div><span class="badge ${fVenc}">${lote.venc_freezer}</span></div>
+      </div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Trazabilidad (${procesos.length} proceso${procesos.length!==1?'s':''})</div>
+      ${procesos.length===0
+        ?'<div style="font-size:11px;color:#ccc">Sin procesos vinculados.</div>'
+        :`<div style="display:flex;flex-direction:column;gap:4px">${procesos.sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(p=>{
+          const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f8f8f5;border-radius:6px;font-size:11px;flex-wrap:wrap">
+            <span class="badge ${tl}">${p.tipo}</span>
+            <span style="color:#888">${p.fecha}</span>
+            <span>${p.origen||'—'} → ${p.destino||'—'}</span>
+            <span style="color:#888">${fmt(p.kg_in,2)} → ${fmt(p.kg_out,2)} kg</span>
+            ${p.responsable?`<span style="color:#aaa">· ${p.responsable}</span>`:''}
+          </div>`;
+        }).join('')}</div>`}
+    </div>`;
+  }).join('');
 }
 
 function togglePerm(uid,tab,val){const u=DB.users.find(u=>u.id===uid);if(!u)return;u.perms[tab]=val;saveDB();}
@@ -2022,6 +2176,7 @@ function migrateDB(){
   if(!DB.caidas) DB.caidas=[];
   if(!DB.devoluciones) DB.devoluciones=[];
   if(!DB.consumoInterno) DB.consumoInterno=[];
+  if(!DB.lotes) DB.lotes=[];
   // Migrar productos: actualizar ventaDirecta, cantVentaDirecta, stockNombre desde defaults
   if(!DB.productos) DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
   else {
