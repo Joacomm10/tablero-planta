@@ -502,15 +502,18 @@ function abrirPanel(idx){
     </div>`:''}
     ${lote?`
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:8px">Lote</div>
-    <div style="background:#e6f1fb;border-radius:8px;padding:12px;margin-bottom:8px">
-      <div style="font-size:16px;font-weight:700;color:#0c447c;margin-bottom:8px">${lote.lote_id}</div>
+    <div style="background:${lote.es_legacy?'#f0efe8':'#e6f1fb'};border-radius:8px;padding:12px;margin-bottom:8px">
+      <div style="font-size:${lote.es_legacy?'13':'16'}px;font-weight:700;color:${lote.es_legacy?'#888':'#0c447c'};margin-bottom:8px">
+        ${lote.es_legacy?'📦 Stock previo al sistema de lotes':lote.lote_id}
+      </div>
+      ${lote.es_legacy?`<div style="font-size:11px;color:#888">Este proceso se realizó con stock existente antes de implementar el sistema de lotes. Se consumirá primero (FIFO) hasta agotarse.</div>`:`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
         <div><div style="color:#888;margin-bottom:2px">Elaboración</div><strong>${lote.fecha_elab}</strong></div>
         <div><div style="color:#888;margin-bottom:2px">Kg inicial</div><strong>${fmt(lote.kg_inicial,2)} kg</strong></div>
         <div><div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div><strong>${lote.venc_heladera}</strong></div>
         <div><div style="color:#085041;margin-bottom:2px">Venc. freezer</div><strong>${lote.venc_freezer}</strong></div>
       </div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>`}
     </div>`:`
     <div style="background:#f0efe8;border-radius:8px;padding:10px 12px;font-size:11px;color:#888">
       Sin lote asignado.
@@ -2042,25 +2045,43 @@ function renderAdminLotes(){
   const en7=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
   el.innerHTML=lotes.map(lote=>{
     const procesos=(DB.procesos||[]).filter(p=>p.lote_id===lote.lote_id);
-    const hVenc=lote.venc_heladera<hoy?'bdanger':lote.venc_heladera<=en7?'bwarn':'bok';
-    const fVenc=lote.venc_freezer<hoy?'bdanger':'bok';
-    return `<div class="card">
+    const esLegacy=!!lote.es_legacy;
+    const hVenc=esLegacy?null:lote.venc_heladera<hoy?'bdanger':lote.venc_heladera<=en7?'bwarn':'bok';
+    const fVenc=esLegacy?null:lote.venc_freezer<hoy?'bdanger':'bok';
+    return `<div class="card" style="${esLegacy?'opacity:0.75;border-left:3px solid #ccc':''}">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <div>
-          <span style="font-size:15px;font-weight:700;color:#0c447c">${lote.lote_id}</span>
-          <span style="margin-left:10px;font-size:12px;color:#666">${lote.proteina}</span>
+          ${esLegacy
+            ?`<span style="font-size:13px;font-weight:600;color:#888">📦 Stock legacy — ${lote.proteina}</span>`
+            :`<span style="font-size:15px;font-weight:700;color:#0c447c">${lote.lote_id}</span>
+             <span style="margin-left:10px;font-size:12px;color:#666">${lote.proteina}</span>`}
         </div>
-        <button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>
+        ${esLegacy
+          ?`<span style="font-size:10px;color:#aaa;font-style:italic">Se consume primero (FIFO) · sin etiqueta</span>`
+          :`<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>`}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:12px;font-size:11px">
-        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px"><div style="color:#888;margin-bottom:2px">Elaboración</div><strong>${lote.fecha_elab}</strong></div>
-        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px"><div style="color:#888;margin-bottom:2px">Kg inicial</div><strong>${fmt(lote.kg_inicial,2)} kg</strong></div>
-        <div style="padding:6px 8px;background:#faeeda;border-radius:6px"><div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div><span class="badge ${hVenc}">${lote.venc_heladera}</span></div>
-        <div style="padding:6px 8px;background:#e1f5ee;border-radius:6px"><div style="color:#085041;margin-bottom:2px">Venc. freezer</div><span class="badge ${fVenc}">${lote.venc_freezer}</span></div>
+        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px">
+          <div style="color:#888;margin-bottom:2px">Elaboración</div>
+          <strong>${esLegacy?'Anterior al sistema':lote.fecha_elab}</strong>
+        </div>
+        <div style="padding:6px 8px;background:#f0efe8;border-radius:6px">
+          <div style="color:#888;margin-bottom:2px">Kg inicial</div>
+          <strong>${fmt(lote.kg_inicial,2)} kg</strong>
+        </div>
+        ${!esLegacy?`
+        <div style="padding:6px 8px;background:#faeeda;border-radius:6px">
+          <div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div>
+          <span class="badge ${hVenc}">${lote.venc_heladera}</span>
+        </div>
+        <div style="padding:6px 8px;background:#e1f5ee;border-radius:6px">
+          <div style="color:#085041;margin-bottom:2px">Venc. freezer</div>
+          <span class="badge ${fVenc}">${lote.venc_freezer}</span>
+        </div>`:''}
       </div>
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Trazabilidad (${procesos.length} proceso${procesos.length!==1?'s':''})</div>
       ${procesos.length===0
-        ?'<div style="font-size:11px;color:#ccc">Sin procesos vinculados.</div>'
+        ?`<div style="font-size:11px;color:#ccc">${esLegacy?'Stock pre-existente sin procesos vinculados.':'Sin procesos vinculados.'}</div>`
         :`<div style="display:flex;flex-direction:column;gap:4px">${procesos.sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(p=>{
           const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
           return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f8f8f5;border-radius:6px;font-size:11px;flex-wrap:wrap">
@@ -2177,6 +2198,32 @@ function migrateDB(){
   if(!DB.devoluciones) DB.devoluciones=[];
   if(!DB.consumoInterno) DB.consumoInterno=[];
   if(!DB.lotes) DB.lotes=[];
+  // Crear lotes LEGACY para proteínas con stock pero sin lote registrado
+  const prots=Object.keys(DB.substocks||{});
+  prots.forEach(prot=>{
+    const legacyId='LEGACY-'+prot.replace(/\s+/g,'-').toUpperCase();
+    const yaExiste=DB.lotes.find(l=>l.lote_id===legacyId);
+    if(yaExiste)return;
+    // Ver si hay stock en algún sub-stock de esta proteína
+    const subs=DB.substocks[prot]||[];
+    const stockTotal=subs.reduce((acc,s)=>acc+getSS(s.key),0);
+    // Ver si ya hay lotes reales para esta proteína
+    const tieneLotsReales=DB.lotes.some(l=>l.proteina===prot&&!l.lote_id.startsWith('LEGACY'));
+    if(stockTotal>0){
+      DB.lotes.push({
+        lote_id:legacyId,
+        proteina:prot,
+        fecha:'2000-01-01',
+        kg_inicial:stockTotal,
+        substock_origen:'',
+        fecha_elab:'Anterior al sistema de lotes',
+        venc_heladera:'—',
+        venc_freezer:'—',
+        es_legacy:true,
+        id:Date.now()+Math.random()
+      });
+    }
+  });
   // Migrar productos: actualizar ventaDirecta, cantVentaDirecta, stockNombre desde defaults
   if(!DB.productos) DB.productos=JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
   else {
