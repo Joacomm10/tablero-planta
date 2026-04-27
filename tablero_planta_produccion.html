@@ -284,8 +284,7 @@ async function loadDBFromSupabase(){
 
 async function saveDB(){
   try{
-    // Upsert — inserta si no existe, actualiza si ya existe
-    await fetch(`${SB_URL}/rest/v1/datos`,{
+    const r=await fetch(`${SB_URL}/rest/v1/datos`,{
       method:'POST',
       headers:{
         'apikey':SB_KEY,
@@ -295,7 +294,16 @@ async function saveDB(){
       },
       body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
     });
-  }catch(e){console.error('Error guardando en Supabase:',e);}
+    if(!r.ok){
+      const txt=await r.text();
+      console.error('Supabase saveDB error:',r.status,txt);
+      return false;
+    }
+    return true;
+  }catch(e){
+    console.error('Error guardando en Supabase:',e);
+    return false;
+  }
 }
 
 // DB en memoria — se carga al iniciar
@@ -2117,13 +2125,22 @@ function delUser(id){
   DB.users=DB.users.filter(u=>u.id!==id);saveDB();renderAdmin();
 }
 
-function cambiarPass(){
+async function cambiarPass(){
   const uid=document.getElementById('pw-user').value;
   const nueva=document.getElementById('pw-nueva').value;
   if(!nueva){alert('Ingresá la nueva contraseña.');return;}
   const u=DB.users.find(u=>u.id===uid);if(!u)return;
-  u.pass=nueva;saveDB();alert('Contraseña actualizada.');
-  document.getElementById('pw-nueva').value='';
+  const anterior=u.pass;
+  u.pass=nueva;
+  const ok=await saveDB();
+  if(ok){
+    alert('✅ Contraseña actualizada y guardada en la base de datos.');
+    document.getElementById('pw-nueva').value='';
+  } else {
+    // Revertir si falló
+    u.pass=anterior;
+    alert('❌ Error al guardar en Supabase. La contraseña NO fue actualizada. Verificá la conexión e intentá de nuevo.');
+  }
 }
 
 function addEmpleado(){
