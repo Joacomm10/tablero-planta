@@ -104,6 +104,7 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 tr.proc-row{cursor:pointer}
 tr.proc-row:hover td{background:#f8f8f5}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -434,37 +435,79 @@ function imprimirEtiquetaLote(loteId, subtitulo){
   const copias=parseInt(prompt('¿Cuántas etiquetas?','1'))||1;
   if(copias<=0)return;
 
-  let html='';
+  const {jsPDF}=window.jspdf;
+  // 120mm ancho x 50mm alto, landscape no es necesario porque ya es más ancho que alto
+  const doc=new jsPDF({orientation:'landscape',unit:'mm',format:[50,120]});
+
   for(let i=0;i<copias;i++){
-    html+=`<div class="etiqueta-print">
-      <div>
-        <div class="ep-lote">${loteId}</div>
-        <div class="ep-tipo">${desc}</div>
-        <div class="ep-prot">${proteina}</div>
-      </div>
-      <hr class="ep-divider">
-      <div class="ep-grid">
-        <div class="ep-item">
-          <span class="ep-item-label">Elaboración</span>
-          <span class="ep-item-val">${fechaElab}</span>
-        </div>
-        <div class="ep-item">
-          <span class="ep-item-label">Cantidad</span>
-          <span class="ep-item-val">${kg}</span>
-        </div>
-        <div class="ep-item">
-          <span class="ep-item-label">Vence heladera</span>
-          <span class="ep-item-val ep-warn">${vencH}</span>
-        </div>
-        <div class="ep-item">
-          <span class="ep-item-label">Vence freezer</span>
-          <span class="ep-item-val ep-ok">${vencF}</span>
-        </div>
-      </div>
-    </div>`;
+    if(i>0)doc.addPage([50,120],'landscape');
+
+    // Fondo blanco
+    doc.setFillColor(255,255,255);
+    doc.rect(0,0,120,50,'F');
+
+    // Número de lote — grande y bold
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(22);
+    doc.setTextColor(0,0,0);
+    doc.text(loteId,5,14);
+
+    // Subtítulo (qué es)
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(40,40,40);
+    doc.text(desc,5,21);
+
+    // Proteína (si es distinta al subtítulo)
+    if(desc!==proteina){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor(100,100,100);
+      doc.text(proteina,5,26);
+    }
+
+    // Línea divisora
+    doc.setDrawColor(180,180,180);
+    doc.setLineWidth(0.3);
+    doc.line(5,29,115,29);
+
+    // Grid de datos — 2 columnas
+    const col1x=5, col2x=63;
+    let y=34;
+
+    // Elaboración
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6);
+    doc.setTextColor(120,120,120);
+    doc.text('ELABORACIÓN',col1x,y);
+    doc.text('CANTIDAD',col2x,y);
+    y+=4;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0,0,0);
+    doc.text(fechaElab,col1x,y);
+    doc.text(kg,col2x,y);
+    y+=5;
+
+    // Vencimientos
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6);
+    doc.setTextColor(120,120,120);
+    doc.text('VENCE HELADERA',col1x,y);
+    doc.text('VENCE FREEZER',col2x,y);
+    y+=4;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9);
+    doc.setTextColor(90,45,0);
+    doc.text(vencH,col1x,y);
+    doc.setTextColor(0,60,40);
+    doc.text(vencF,col2x,y);
   }
-  document.getElementById('print-area').innerHTML=html;
-  window.print();
+
+  // Abrir PDF en nueva pestaña → el diálogo ya tiene el tamaño correcto
+  const blob=doc.output('blob');
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
 }
 
 // ============================================================
