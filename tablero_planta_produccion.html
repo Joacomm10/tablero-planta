@@ -63,6 +63,31 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 .pill-kg{background:#e6f1fb;color:#0c447c;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .pill-u{background:#eeedfe;color:#3c3489;font-size:10px;padding:1px 6px;border-radius:99px;margin-left:4px}
 .month-filter{display:flex;align-items:center;gap:8px;margin-bottom:1rem;font-size:12px}
+/* ---- IMPRESIÓN DE ETIQUETAS ---- */
+#print-area{display:none}
+@media print{
+  @page{size:120mm 50mm;margin:0}
+  body > *{display:none !important}
+  #print-area{display:block !important;margin:0;padding:0}
+  .etiqueta-print{
+    width:120mm;height:50mm;
+    padding:4mm 5mm;
+    display:flex;flex-direction:column;justify-content:space-between;
+    page-break-after:always;
+    box-sizing:border-box;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  .ep-lote{font-size:20pt;font-weight:800;color:#000;letter-spacing:.04em;line-height:1}
+  .ep-tipo{font-size:9pt;font-weight:600;color:#333;margin-top:1mm}
+  .ep-prot{font-size:8pt;color:#555;margin-top:.5mm}
+  .ep-divider{border:none;border-top:1px solid #aaa;margin:1.5mm 0}
+  .ep-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5mm 4mm}
+  .ep-item{font-size:7pt}
+  .ep-item-label{color:#666;display:block;font-size:6pt;text-transform:uppercase;letter-spacing:.03em}
+  .ep-item-val{font-weight:700;color:#000;font-size:8pt}
+  .ep-warn{color:#5a2d00}
+  .ep-ok{color:#003d2b}
+}
 .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none}
 .panel-overlay.open{opacity:1;pointer-events:all}
 .panel-lateral{position:fixed;top:0;right:0;height:100vh;width:420px;max-width:95vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,0.12);z-index:101;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column}
@@ -82,6 +107,7 @@ tr.proc-row:hover td{background:#f8f8f5}
 </head>
 <body>
 <div class="app" id="app"></div>
+<div id="print-area"></div>
 <div class="panel-overlay" id="panel-overlay" onclick="cerrarPanel()"></div>
 <div class="panel-lateral" id="panel-lateral">
   <div class="panel-header">
@@ -394,54 +420,51 @@ function calcVenc(fechaStr,meses){
   return d.toISOString().slice(0,10);
 }
 
-function imprimirEtiquetaLote(loteId){
+function imprimirEtiquetaLote(loteId, subtitulo){
   const lote=(DB.lotes||[]).find(l=>l.lote_id===loteId);
-  let proteina=loteId,fechaElab='-',vencH='-',vencF='-',kg='-',substock='-';
+  let proteina=loteId, fechaElab='—', vencH='—', vencF='—', kg='—';
   if(lote){
     proteina=lote.proteina;
-    fechaElab=lote.fecha_elab;
-    vencH=lote.venc_heladera;
-    vencF=lote.venc_freezer;
+    fechaElab=lote.fecha_elab==='Anterior al sistema de lotes'?'Stock previo':lote.fecha_elab;
+    vencH=lote.venc_heladera||'—';
+    vencF=lote.venc_freezer||'—';
     kg=fmt(lote.kg_inicial,2)+' kg';
-    const ssDef=findSSdef(lote.substock_origen);
-    substock=ssDef?ssDef.label:lote.substock_origen||'';
   }
-  const copias=parseInt(prompt('¿Cuántas etiquetas querés imprimir?','1'))||1;
+  const desc=subtitulo||proteina;
+  const copias=parseInt(prompt('¿Cuántas etiquetas?','1'))||1;
   if(copias<=0)return;
-  let etiquetasHTML='';
+
+  let html='';
   for(let i=0;i<copias;i++){
-    etiquetasHTML+=`<div class="etiqueta">
-      <div class="et-header">
-        <span class="et-lote">${loteId}</span>
-        <span class="et-prot">${proteina}</span>
+    html+=`<div class="etiqueta-print">
+      <div>
+        <div class="ep-lote">${loteId}</div>
+        <div class="ep-tipo">${desc}</div>
+        <div class="ep-prot">${proteina}</div>
       </div>
-      <div class="et-sub">${substock}</div>
-      <div class="et-row"><span class="et-label">Elaboración:</span><span class="et-val">${fechaElab}</span></div>
-      <div class="et-row"><span class="et-label">Heladera (2m):</span><span class="et-val et-warn">${vencH}</span></div>
-      <div class="et-row"><span class="et-label">Freezer (6m):</span><span class="et-val et-ok">${vencF}</span></div>
-      <div class="et-row"><span class="et-label">Cantidad:</span><span class="et-val">${kg}</span></div>
+      <hr class="ep-divider">
+      <div class="ep-grid">
+        <div class="ep-item">
+          <span class="ep-item-label">Elaboración</span>
+          <span class="ep-item-val">${fechaElab}</span>
+        </div>
+        <div class="ep-item">
+          <span class="ep-item-label">Cantidad</span>
+          <span class="ep-item-val">${kg}</span>
+        </div>
+        <div class="ep-item">
+          <span class="ep-item-label">Vence heladera</span>
+          <span class="ep-item-val ep-warn">${vencH}</span>
+        </div>
+        <div class="ep-item">
+          <span class="ep-item-label">Vence freezer</span>
+          <span class="ep-item-val ep-ok">${vencF}</span>
+        </div>
+      </div>
     </div>`;
   }
-  const win=window.open('','_blank','width=500,height=400');
-  win.document.write(`<!DOCTYPE html><html><head><title>Etiqueta ${loteId}</title>
-  <style>
-    @page{size:120mm 50mm;margin:0}
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff}
-    .etiqueta{width:120mm;height:50mm;padding:3mm 4mm;border:1px solid #ccc;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always}
-    .et-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding-bottom:2mm;margin-bottom:1.5mm}
-    .et-lote{font-size:14pt;font-weight:700;color:#0c447c;letter-spacing:.04em}
-    .et-prot{font-size:8pt;font-weight:500;color:#444;text-align:right}
-    .et-sub{font-size:7.5pt;color:#666;margin-bottom:1.5mm;font-style:italic}
-    .et-row{display:flex;justify-content:space-between;align-items:center;font-size:7pt;margin-bottom:1mm}
-    .et-label{color:#888;font-weight:500}
-    .et-val{font-weight:600;color:#1a1a1a}
-    .et-warn{color:#854f0b}
-    .et-ok{color:#085041}
-  </style></head><body>${etiquetasHTML}
-  <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`);
-  win.document.close();
+  document.getElementById('print-area').innerHTML=html;
+  window.print();
 }
 
 // ============================================================
@@ -513,7 +536,7 @@ function abrirPanel(idx){
         <div><div style="color:#854f0b;margin-bottom:2px">Venc. heladera</div><strong>${lote.venc_heladera}</strong></div>
         <div><div style="color:#085041;margin-bottom:2px">Venc. freezer</div><strong>${lote.venc_freezer}</strong></div>
       </div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>`}
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;font-size:12px" onclick="imprimirEtiquetaLote('${lote.lote_id}','${p.tipo==='limpieza'?p.destino||p.proteina:p.tipo==='coccion'?p.destino||p.proteina:p.proteina}')">🖨️ Imprimir etiqueta</button>`}
     </div>`:`
     <div style="background:#f0efe8;border-radius:8px;padding:10px 12px;font-size:11px;color:#888">
       Sin lote asignado.
@@ -1083,7 +1106,10 @@ function renderIngreso(){
         return `<tr><td>${r.fecha}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td>
         <td>${r.lote_id?`<span class="badge binfo">${r.lote_id}</span>`:'<span style="color:#ccc;font-size:11px">—</span>'}</td>
         <td style="color:#888">${r.usuario||'-'}</td>
-        <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delIngreso(${idx})">x</button>`:''}</td></tr>`;
+        <td style="display:flex;gap:4px;align-items:center">
+          ${r.lote_id?`<button class="btn-sm" title="Imprimir etiqueta" onclick="imprimirEtiquetaLote('${r.lote_id}','MP · ${r.proteina}')">🖨️</button>`:''}
+          ${CU.role==='gerente'?`<button class="btn-sm" onclick="delIngreso(${idx})">x</button>`:''}
+        </td></tr>`;
       }).join('')}</tbody>
     </table></div>
   </div>`;
@@ -2058,7 +2084,7 @@ function renderAdminLotes(){
         </div>
         ${esLegacy
           ?`<span style="font-size:10px;color:#aaa;font-style:italic">Se consume primero (FIFO) · sin etiqueta</span>`
-          :`<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="imprimirEtiquetaLote('${lote.lote_id}')">🖨️ Imprimir etiqueta</button>`}
+          :`<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="imprimirEtiquetaLote('${lote.lote_id}','${lote.proteina}')">🖨️ Imprimir etiqueta</button>`}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:12px;font-size:11px">
         <div style="padding:6px 8px;background:#f0efe8;border-radius:6px">
