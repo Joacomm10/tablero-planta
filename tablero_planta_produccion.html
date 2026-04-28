@@ -504,10 +504,14 @@ function imprimirEtiquetaLote(loteId, subtitulo){
     doc.text(vencF,col2x,y);
   }
 
-  // Abrir PDF en nueva pestaña → el diálogo ya tiene el tamaño correcto
+  // Descargar PDF directamente → se abre con Adobe que ya tiene el tamaño correcto
   const blob=doc.output('blob');
   const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='etiqueta-'+loteId+'.pdf';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
 
 // ============================================================
