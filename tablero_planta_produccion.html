@@ -132,7 +132,8 @@ const DEFAULT_TEORICO = {
   'Solomillo':     {desp_limpieza_pct:15.5, coccion_pct:81.4},
   'Bondiola':      {desp_limpieza_pct:1.2,  coccion_pct:58.3},
   'Lomo':          {desp_limpieza_pct:19.7, coccion_pct:null},
-  'Cuadril':       {desp_limpieza_pct:25.6, coccion_pct:74.7}
+  'Cuadril':       {desp_limpieza_pct:25.6, coccion_pct:74.7},
+  'Roast Beef':    {desp_limpieza_pct:10.0, coccion_pct:70.0},
 };
 
 // SUB_STOCKS
@@ -182,6 +183,11 @@ const DEFAULT_SUBSTOCKS = {
     {key:'cuadril_mp',            label:'Corazón de cuadril (entero)', estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
     {key:'cuadril_tiras_crudo',   label:'Tiras crudas',               estado:'crudo', type:'kg', color:'#e6f1fb', tc:'#0c447c'},
     {key:'cuadril_tiras_cocido',  label:'Tiras cocidas',              estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+  ],
+  'Roast Beef': [
+    {key:'roastbeef_mp',          label:'Roast Beef (entero)',         estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
+    {key:'roastbeef_lpu',         label:'Roast Beef LPU (limpio)',     estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
+    {key:'roastbeef_lpu_cocido',  label:'Roast Beef LPU cocido',       estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
   ]
 };
 
@@ -247,7 +253,8 @@ const DEFAULT_SS = {
   solomillo_medallon_170_cocido:0, solomillo_tiras_cocido:4.58,
   bondiola_mp:0, bondiola_lpu:0, bondiola_cocida_medallon:0, bondiola_cocida_pulled:0,
   lomo_mp:0, lomo_medallon_180_crudo:0, lomo_recortes:10.57,
-  cuadril_mp:0, cuadril_tiras_crudo:0, cuadril_tiras_cocido:11.23
+  cuadril_mp:0, cuadril_tiras_crudo:0, cuadril_tiras_cocido:11.23,
+  roastbeef_mp:0, roastbeef_lpu:0, roastbeef_lpu_cocido:0
 };
 
 const DEFAULT_PT = {
@@ -2680,6 +2687,10 @@ function migrateDB(){
     }
   });
   if(!DB.teorico) DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
+  // Agregar proteínas nuevas al teórico si no existen
+  Object.entries(DEFAULT_TEORICO).forEach(([prot,vals])=>{
+    if(!DB.teorico[prot]) DB.teorico[prot]=JSON.parse(JSON.stringify(vals));
+  });
   if(!DB.users) DB.users=JSON.parse(JSON.stringify(DEFAULT_USERS));
   if(!DB.empleados) DB.empleados=[];
   if(!DB.caidas) DB.caidas=[];
