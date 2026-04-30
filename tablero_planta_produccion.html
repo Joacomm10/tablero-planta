@@ -285,7 +285,7 @@ const SB_RECORD_ID = 'planta_v5';
 
 function defaultDB(){
   return {
-    ingresos:[],procesos:[],ventas:[],calidad:[],lotes:[],
+    ingresos:[],procesos:[],ventas:[],calidad:[],lotes:[],proveedores:[],
     ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
@@ -628,6 +628,7 @@ function activarSesion(user){
     if(tab==='admin') btn.style.display=user.role==='gerente'?'':'none';
     else if(tab==='empleados') btn.style.display=(user.role==='gerente'||checkPerm('empleados'))?'':'none';
     else if(tab==='finanzas') btn.style.display=(user.role==='gerente'||checkPerm('finanzas'))?'':'none';
+    else if(tab==='proveedores') btn.style.display=(user.role==='gerente'||checkPerm('proveedores'))?'':'none';
     else btn.style.display=checkPerm(tab)?'':'none';
   });
   const firstTab=document.querySelector('#main-tabs .tab:not([style*="none"])');
@@ -659,7 +660,8 @@ function renderTab(t){
   ({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,
     stock:renderStock,ventas:renderVentas,balance:renderBalance,
     config:renderConfig,calidad:renderCalidad,admin:renderAdmin,
-    empleados:renderEmpleados,finanzas:renderFinanzas}[t]||function(){})();
+    empleados:renderEmpleados,finanzas:renderFinanzas,
+    proveedores:renderProveedores}[t]||function(){})();
 }
 
 // ============================================================
@@ -1130,7 +1132,12 @@ function renderIngreso(){
       <div class="fg"><label>Proteína</label><select id="i-prot" onchange="actualizarLotePreview()">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div>
       <div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div>
-      <div class="fg"><label>Proveedor</label><input type="text" id="i-prov" placeholder="Opcional"></div>
+      <div class="fg"><label>Proveedor</label>
+        <select id="i-prov">
+          <option value="">— Sin especificar —</option>
+          ${(DB.proveedores||[]).map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="frow" style="align-items:center">
       <div class="fg" style="max-width:180px"><label>N° de lote <span style="font-size:10px;color:#888">(auto)</span></label>
@@ -2035,6 +2042,119 @@ function delProducto(i){
 // ============================================================
 // ADMIN
 // ============================================================
+function renderProveedores(){
+  const el=document.getElementById('proveedores');
+  if(!el)return;
+
+  const proveedores=DB.proveedores||[];
+
+  // ABM
+  const abmHTML=`<div class="card">
+    <div class="ctitle">Gestión de proveedores</div>
+    <div class="frow">
+      <div class="fg"><label>Nombre del proveedor</label><input type="text" id="prov-nombre" placeholder="Ej: Los Hermanos"></div>
+      <div class="fg"><label>Contacto <span style="font-size:10px;color:#888">(opcional)</span></label><input type="text" id="prov-contacto" placeholder="Teléfono o email"></div>
+      <div class="fg"><label>Notas <span style="font-size:10px;color:#888">(opcional)</span></label><input type="text" id="prov-notas" placeholder="Ej: solo vacuno"></div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="addProveedor()">+ Agregar</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+      ${proveedores.length===0?'<span style="color:#888;font-size:12px">Sin proveedores cargados.</span>'
+        :proveedores.map((p,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#f0efe8;border-radius:8px;padding:6px 12px;font-size:12px">
+          <div>
+            <strong>${p.nombre}</strong>
+            ${p.contacto?`<span style="color:#888;margin-left:6px">${p.contacto}</span>`:''}
+            ${p.notas?`<span style="color:#aaa;margin-left:6px;font-style:italic">${p.notas}</span>`:''}
+          </div>
+          <button class="btn-sm" onclick="delProveedor(${i})">×</button>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  // Historial por proveedor
+  const provCards=proveedores.length===0?''
+    :proveedores.map(prov=>{
+      const ings=DB.ingresos.filter(r=>r.proveedor===prov.nombre);
+      if(!ings.length)return `<div class="card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">${prov.nombre}</div>
+        <p style="color:#ccc;font-size:12px">Sin ingresos registrados.</p>
+      </div>`;
+
+      // Calcular métricas por ingreso
+      const filas=ings.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(ing=>{
+        const kgBruto=ing.kg_bruto||0;
+        const costoPagado=kgBruto*(ing.costo_kg||0);
+        // Buscar limpieza con mismo lote_id
+        const limp=DB.procesos.find(p=>p.tipo==='limpieza'&&p.lote_id&&p.lote_id===ing.lote_id);
+        const kgDesp=limp?limp.kg_desperdicio||0:null;
+        const kgLimpio=kgDesp!==null?kgBruto-kgDesp:null;
+        const rend=kgLimpio!==null&&kgBruto>0?kgLimpio/kgBruto*100:null;
+        const costoRealKg=kgLimpio>0?costoPagado/kgLimpio:null;
+        const rendColor=rend===null?'#aaa':rend>=85?'#085041':rend>=75?'#854f0b':'#a32d2d';
+        return {ing,kgBruto,costoPagado,kgDesp,kgLimpio,rend,costoRealKg,rendColor};
+      });
+
+      // Totales
+      const totalKgBruto=filas.reduce((a,f)=>a+f.kgBruto,0);
+      const totalCosto=filas.reduce((a,f)=>a+f.costoPagado,0);
+      const filasConLimp=filas.filter(f=>f.kgLimpio!==null);
+      const totalKgLimpio=filasConLimp.reduce((a,f)=>a+f.kgLimpio,0);
+      const rendProm=totalKgBruto>0&&filasConLimp.length?filasConLimp.reduce((a,f)=>a+f.kgBruto,0)>0?totalKgLimpio/filasConLimp.reduce((a,f)=>a+f.kgBruto,0)*100:null:null;
+      const costoRealProm=totalKgLimpio>0?totalCosto/totalKgLimpio:null;
+
+      return `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="font-size:15px;font-weight:600">${prov.nombre}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+            <span style="background:#f0efe8;padding:3px 8px;border-radius:6px">Total comprado: <strong>$${fmt(totalCosto,0)}</strong></span>
+            <span style="background:#f0efe8;padding:3px 8px;border-radius:6px">Kg bruto: <strong>${fmt(totalKgBruto,2)} kg</strong></span>
+            ${rendProm!==null?`<span style="background:#f0efe8;padding:3px 8px;border-radius:6px">Rend. prom: <strong style="color:${rendProm>=85?'#085041':rendProm>=75?'#854f0b':'#a32d2d'}">${rendProm.toFixed(1)}%</strong></span>`:''}
+            ${costoRealProm?`<span style="background:#e6f1fb;padding:3px 8px;border-radius:6px">$/kg limpio real: <strong>$${fmt(costoRealProm,1)}</strong></span>`:''}
+          </div>
+        </div>
+        <div style="overflow-x:auto"><table>
+          <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg bruto</th><th>Costo total</th><th>Lote</th><th>Kg desperdicio</th><th>Kg limpio</th><th>Rendimiento</th><th>$/kg limpio real</th></tr></thead>
+          <tbody>${filas.map(f=>`<tr>
+            <td>${f.ing.fecha}</td>
+            <td>${f.ing.proteina}</td>
+            <td>${fmt(f.kgBruto,2)} kg</td>
+            <td>$${fmt(f.ing.costo_kg||0,2)}</td>
+            <td>$${fmt(f.costoPagado,0)}</td>
+            <td>${f.ing.lote_id?`<span class="badge binfo">${f.ing.lote_id}</span>`:'<span style="color:#ccc">—</span>'}</td>
+            <td style="color:#a32d2d">${f.kgDesp!==null?fmt(f.kgDesp,2)+' kg':'<span style="color:#ccc">sin limpieza</span>'}</td>
+            <td style="color:#085041;font-weight:600">${f.kgLimpio!==null?fmt(f.kgLimpio,2)+' kg':'—'}</td>
+            <td style="font-weight:600;color:${f.rendColor}">${f.rend!==null?f.rend.toFixed(1)+'%':'—'}</td>
+            <td style="font-weight:600;color:#0c447c">${f.costoRealKg?'$'+fmt(f.costoRealKg,1):'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+    }).join('');
+
+  el.innerHTML=`<p class="sechead">Proveedores</p>${abmHTML}${provCards}`;
+}
+
+function addProveedor(){
+  const nombre=document.getElementById('prov-nombre').value.trim();
+  if(!nombre){alert('Ingresá el nombre del proveedor.');return;}
+  if(!DB.proveedores)DB.proveedores=[];
+  if(DB.proveedores.find(p=>p.nombre===nombre)){alert('Ya existe ese proveedor.');return;}
+  const contacto=document.getElementById('prov-contacto').value.trim();
+  const notas=document.getElementById('prov-notas').value.trim();
+  DB.proveedores.push({nombre,contacto,notas,id:Date.now()});
+  saveDB();renderProveedores();
+  // Actualizar el select en ingreso si está visible
+  const sel=document.getElementById('i-prov');
+  if(sel){
+    const opt=document.createElement('option');
+    opt.value=nombre;opt.textContent=nombre;
+    sel.appendChild(opt);
+  }
+}
+
+function delProveedor(i){
+  if(!confirm('¿Eliminar este proveedor?'))return;
+  DB.proveedores.splice(i,1);saveDB();renderProveedores();
+}
+
 function renderEmpleados(){
   const el=document.getElementById('empleados');
   if(!el)return;
@@ -2335,7 +2455,7 @@ function renderFinanzas(){
 
 function renderAdmin(){
   if(CU.role!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','finanzas'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','proveedores','finanzas'];
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
@@ -2344,21 +2464,6 @@ function renderAdmin(){
     <button class="mtab" onclick="showAdminTab('lotes',this)">🏷️ Lotes</button>
   </div>
   <div id="admin-general">
-  <div class="card">
-    <div class="ctitle">Empleados</div>
-    <div class="info-box">Los empleados que cargues acá aparecen como opciones en el campo "Responsable" de cada proceso.</div>
-    <div class="frow">
-      <div class="fg"><label>Nombre del empleado</label><input type="text" id="emp-nombre" placeholder="Ej: Juan Pérez"></div>
-      <button class="btn btn-primary" style="align-self:flex-end" onclick="addEmpleado()">+ Agregar</button>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-      ${(DB.empleados||[]).length===0?'<span style="color:#888;font-size:12px">Sin empleados cargados.</span>':
-        (DB.empleados||[]).map((e,i)=>`<div style="display:flex;align-items:center;gap:6px;background:#f0efe8;border-radius:99px;padding:4px 12px;font-size:12px">
-          ${e} <button class="btn-sm" onclick="delEmpleado(${i})" style="padding:0 4px;font-size:12px;border:none">×</button>
-        </div>`).join('')}
-    </div>
-  </div>
-
   <div class="card">
     <div class="ctitle">Usuarios y permisos</div>
     <div style="overflow-x:auto"><table>
@@ -2488,7 +2593,7 @@ function addUser(){
   const role=document.getElementById('nu-role').value;
   if(!nombre||!id||!pass){alert('Completá todos los campos.');return;}
   if(DB.users.find(u=>u.id===id)){alert('Ya existe un usuario con ese ID.');return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','finanzas'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','proveedores','finanzas'];
   const perms={admin:false};
   TABS.forEach(t=>perms[t]=role==='gerente'?true:['resumen','ingreso','proceso'].includes(t));
   DB.users.push({id,nombre,pass,role,perms});
@@ -2581,6 +2686,7 @@ function migrateDB(){
   if(!DB.devoluciones) DB.devoluciones=[];
   if(!DB.consumoInterno) DB.consumoInterno=[];
   if(!DB.lotes) DB.lotes=[];
+  if(!DB.proveedores) DB.proveedores=[];
   // Crear lotes LEGACY para proteínas con stock pero sin lote registrado
   const prots=Object.keys(DB.substocks||{});
   prots.forEach(prot=>{
@@ -2678,6 +2784,7 @@ loadDBFromSupabase().then(data=>{
           <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
           <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
           <button class="tab" data-tab="empleados" onclick="showTab('empleados',this)">Empleados</button>
+          <button class="tab" data-tab="proveedores" onclick="showTab('proveedores',this)">Proveedores</button>
           <button class="tab" data-tab="finanzas" onclick="showTab('finanzas',this)">Finanzas</button>
           <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
         </div>
@@ -2698,6 +2805,7 @@ loadDBFromSupabase().then(data=>{
       <div id="config" class="sec"></div>
       <div id="calidad" class="sec"></div>
       <div id="empleados" class="sec"></div>
+      <div id="proveedores" class="sec"></div>
       <div id="finanzas" class="sec"></div>
       <div id="admin" class="sec"></div>
     </div>`;
