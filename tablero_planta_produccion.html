@@ -269,9 +269,9 @@ const DEFAULT_PT = {
 
 const DEFAULT_USERS = [
   {id:'gerente',nombre:'Gerente de operaciones',pass:'1234',role:'gerente',
-   perms:{resumen:true,ingreso:true,proceso:true,stock:true,ventas:true,balance:true,config:true,calidad:true,admin:true}},
+   perms:{resumen:true,ingreso:true,proceso:true,stock:true,ventas:true,balance:true,config:true,calidad:true,empleados:true,admin:true}},
   {id:'cocina',nombre:'Jefe de cocina',pass:'5678',role:'cocina',
-   perms:{resumen:true,ingreso:true,proceso:true,stock:false,ventas:false,balance:false,config:false,calidad:true,admin:false}},
+   perms:{resumen:true,ingreso:true,proceso:true,stock:false,ventas:false,balance:false,config:false,calidad:true,empleados:false,admin:false}},
 ];
 const DEFAULT_EMPLEADOS = [];
 
@@ -625,7 +625,10 @@ function activarSesion(user){
   document.getElementById('user-avatar').textContent=user.nombre.substring(0,2).toUpperCase();
   document.querySelectorAll('[data-tab]').forEach(btn=>{
     const tab=btn.dataset.tab;
-    btn.style.display=(tab==='admin')?(user.role==='gerente'?'':'none'):(checkPerm(tab)?'':'none');
+    if(tab==='admin') btn.style.display=user.role==='gerente'?'':'none';
+    else if(tab==='empleados') btn.style.display=(user.role==='gerente'||checkPerm('empleados'))?'':'none';
+    else if(tab==='finanzas') btn.style.display=(user.role==='gerente'||checkPerm('finanzas'))?'':'none';
+    else btn.style.display=checkPerm(tab)?'':'none';
   });
   const firstTab=document.querySelector('#main-tabs .tab:not([style*="none"])');
   if(firstTab)firstTab.click();
@@ -655,7 +658,8 @@ function renderTab(t){
   checkAlertas();
   ({resumen:renderResumen,ingreso:renderIngreso,proceso:renderProceso,
     stock:renderStock,ventas:renderVentas,balance:renderBalance,
-    config:renderConfig,calidad:renderCalidad,admin:renderAdmin}[t]||function(){})();
+    config:renderConfig,calidad:renderCalidad,admin:renderAdmin,
+    empleados:renderEmpleados,finanzas:renderFinanzas}[t]||function(){})();
 }
 
 // ============================================================
@@ -799,14 +803,6 @@ function renderResumen(){
     <div class="kcard">
       <div class="klabel">Consumo interno</div><div class="kval">${totalConsumoInt}</div><div class="ksub">unidades período</div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="ctitle">Rendimiento por empleado</div>
-    <table>
-      <thead><tr><th>Empleado</th><th>Limpiezas</th><th>Desvío limpieza</th><th>Cocciones</th><th>Desvío cocción</th></tr></thead>
-      <tbody>${empStatsHTML}</tbody>
-    </table>
   </div>
 
   <div class="card">
@@ -1961,6 +1957,7 @@ function renderConfigProductos(){
       <div class="fg"><label>Nombre</label><input type="text" id="np-nombre" placeholder="Ej: Pollo al curry - 350g"></div>
       <div class="fg"><label>Proteína</label><select id="np-prot">${Object.keys(DB.substocks).map(p=>`<option>${p}</option>`).join('')}</select></div>
       <div class="fg" style="max-width:130px"><label>Gramaje porción (kg)</label><input type="number" id="np-kg" placeholder="0.000" step="0.001"></div>
+      <div class="fg" style="max-width:130px"><label>Precio venta ($)</label><input type="number" id="np-precio" placeholder="0" step="1"></div>
     </div>
     <div class="frow">
       <div class="fg"><label>Sub-stock origen</label>
@@ -1981,17 +1978,23 @@ function renderConfigProductos(){
     <button class="btn btn-primary" onclick="addProducto()">+ Agregar producto</button>
   </div>
   <div class="card">
-    <div class="ctitle">Productos existentes</div>
+    <div class="ctitle">Productos existentes <span style="font-size:10px;color:#888;font-weight:normal">— hacé click en el precio para editarlo</span></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Nombre</th><th>Proteína</th><th>Porción kg</th><th>kg MP teórico/u</th><th>Sub-stock</th><th>Cadena</th><th>Nombre en planilla</th><th></th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Proteína</th><th>Porción kg</th><th>kg MP teórico/u</th><th>Precio venta</th><th>Food cost %</th><th>Sub-stock</th><th>Cadena</th><th></th></tr></thead>
       <tbody>${DB.productos.map((p,i)=>{
         const kgTeo=calcKgMPTeorico(p);
+        const teo=DB.teorico[p.proteina];
+        const costoMP=kgTeo*(teo?.costo_kg_promedio||0);
+        const precio=p.precio_venta||0;
+        const fc=precio>0?(costoMP/precio*100):null;
+        const fcColor=fc===null?'#aaa':fc<30?'#085041':fc<40?'#1D9E75':fc<50?'#EF9F27':'#E24B4A';
         return `<tr>
           <td>${p.nombre}</td><td>${p.proteina}</td><td>${fmt(p.kgPorcion,3)}</td>
           <td><strong>${fmt(kgTeo,3)}</strong> <span style="font-size:10px;color:#888">kg MP</span></td>
+          <td><span style="cursor:pointer;color:#0c447c;font-weight:600" onclick="editPrecio(${i})" title="Click para editar">${precio>0?'$'+fmt(precio,0):'— agregar'}</span></td>
+          <td style="font-weight:600;color:${fcColor}">${fc!==null?fc.toFixed(1)+'%':'—'}</td>
           <td style="color:#888;font-size:11px">${p.substock}</td>
           <td style="color:#888;font-size:11px">${(p.chain||[]).join('→')}</td>
-          <td style="color:${p.stockNombre?'#444':'#ccc'};font-size:11px">${p.stockNombre||'— sin mapeo'}</td>
           <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delProducto(${i})">x</button>`:''}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -2007,10 +2010,19 @@ function addProducto(){
   const chainStr=document.getElementById('np-chain').value;
   const ptKey=document.getElementById('np-ptkey').value.trim();
   const stockNombre=document.getElementById('np-stocknombre').value.trim();
+  const precio_venta=parseFloat(document.getElementById('np-precio').value)||0;
   if(!nombre||!ptKey||isNaN(kgPorcion)||kgPorcion<=0){alert('Completá todos los campos.');return;}
   const chain=chainStr.split(',');
-  DB.productos.push({nombre,proteina,kgPorcion,substock,chain,ptKey,stockNombre});
+  DB.productos.push({nombre,proteina,kgPorcion,substock,chain,ptKey,stockNombre,precio_venta});
   if(DB.pt[ptKey]===undefined)DB.pt[ptKey]=0;
+  saveDB();renderConfigProductos();
+}
+
+function editPrecio(i){
+  const p=DB.productos[i];
+  const nuevo=parseFloat(prompt(`Precio de venta para "${p.nombre}":`,p.precio_venta||0));
+  if(isNaN(nuevo)||nuevo<0)return;
+  p.precio_venta=nuevo;
   saveDB();renderConfigProductos();
 }
 
@@ -2023,9 +2035,307 @@ function delProducto(i){
 // ============================================================
 // ADMIN
 // ============================================================
+function renderEmpleados(){
+  const el=document.getElementById('empleados');
+  if(!el)return;
+
+  // Calcular stats por empleado (todos los períodos)
+  const empStats={};
+  DB.procesos.forEach(p=>{
+    const emp=p.responsable; if(!emp) return;
+    if(!empStats[emp]) empStats[emp]={limpieza:[],coccion:[]};
+    const teo=DB.teorico[p.proteina];
+    if(p.tipo==='limpieza'&&p.kg_in>0&&teo){
+      const rReal=(p.kg_in-p.kg_desperdicio)/p.kg_in*100;
+      empStats[emp].limpieza.push({fecha:p.fecha,proteina:p.proteina,kg_in:p.kg_in,kg_out:p.kg_out,kg_desp:p.kg_desperdicio,rReal,rTeo:100-teo.desp_limpieza_pct,dev:rReal-(100-teo.desp_limpieza_pct)});
+    }
+    if(p.tipo==='coccion'&&p.kg_in>0&&teo?.coccion_pct){
+      const rReal=p.kg_out/p.kg_in*100;
+      empStats[emp].coccion.push({fecha:p.fecha,proteina:p.proteina,kg_in:p.kg_in,kg_out:p.kg_out,rReal,rTeo:teo.coccion_pct,dev:rReal-teo.coccion_pct});
+    }
+  });
+
+  const empCards=Object.keys(empStats).length===0
+    ?'<div class="card"><p style="color:#888;font-size:12px">Sin datos — asigná responsables en los procesos.</p></div>'
+    :Object.entries(empStats).map(([emp,data])=>{
+      const avgDevLimp=data.limpieza.length?data.limpieza.reduce((a,r)=>a+r.dev,0)/data.limpieza.length:null;
+      const avgDevCoc=data.coccion.length?data.coccion.reduce((a,r)=>a+r.dev,0)/data.coccion.length:null;
+      const dcL=avgDevLimp===null?'bgray':Math.abs(avgDevLimp)<3?'bok':Math.abs(avgDevLimp)<8?'bwarn':'bdanger';
+      const dcC=avgDevCoc===null?'bgray':Math.abs(avgDevCoc)<3?'bok':Math.abs(avgDevCoc)<8?'bwarn':'bdanger';
+
+      // Historial de limpiezas
+      const limpHTML=data.limpieza.length===0?'<p style="color:#ccc;font-size:11px">Sin limpiezas registradas.</p>'
+        :`<div style="overflow-x:auto"><table>
+          <thead><tr><th>Fecha</th><th>Proteína</th><th>Entrada</th><th>Desp.</th><th>Limpio</th><th>Real</th><th>Teórico</th><th>Desvío</th></tr></thead>
+          <tbody>${data.limpieza.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
+            const dc=Math.abs(r.dev)<3?'bok':Math.abs(r.dev)<8?'bwarn':'bdanger';
+            return `<tr>
+              <td>${r.fecha}</td>
+              <td>${r.proteina}</td>
+              <td>${fmt(r.kg_in,2)} kg</td>
+              <td style="color:#a32d2d">${fmt(r.kg_desp,2)} kg</td>
+              <td style="color:#0c447c">${fmt(r.kg_out,2)} kg</td>
+              <td>${r.rReal.toFixed(1)}%</td>
+              <td style="color:#888">${r.rTeo.toFixed(1)}%</td>
+              <td><span class="badge ${dc}">${r.dev>=0?'+':''}${r.dev.toFixed(1)}%</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+
+      // Historial de cocciones
+      const cocHTML=data.coccion.length===0?'<p style="color:#ccc;font-size:11px">Sin cocciones registradas.</p>'
+        :`<div style="overflow-x:auto"><table>
+          <thead><tr><th>Fecha</th><th>Proteína</th><th>Entrada</th><th>Cocido</th><th>Real</th><th>Teórico</th><th>Desvío</th></tr></thead>
+          <tbody>${data.coccion.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
+            const dc=Math.abs(r.dev)<3?'bok':Math.abs(r.dev)<8?'bwarn':'bdanger';
+            return `<tr>
+              <td>${r.fecha}</td>
+              <td>${r.proteina}</td>
+              <td>${fmt(r.kg_in,2)} kg</td>
+              <td style="color:#085041">${fmt(r.kg_out,2)} kg</td>
+              <td>${r.rReal.toFixed(1)}%</td>
+              <td style="color:#888">${r.rTeo.toFixed(1)}%</td>
+              <td><span class="badge ${dc}">${r.dev>=0?'+':''}${r.dev.toFixed(1)}%</span></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+
+      return `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="font-size:15px;font-weight:600">${emp}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#888">${data.limpieza.length} limp. · </span>
+            ${avgDevLimp!==null?`<span class="badge ${dcL}">Limp: ${avgDevLimp>=0?'+':''}${avgDevLimp.toFixed(1)}%</span>`:''}
+            <span style="font-size:11px;color:#888">${data.coccion.length} coc. · </span>
+            ${avgDevCoc!==null?`<span class="badge ${dcC}">Coc: ${avgDevCoc>=0?'+':''}${avgDevCoc.toFixed(1)}%</span>`:''}
+          </div>
+        </div>
+        <div class="modo-tabs" style="margin-bottom:10px">
+          <button class="mtab active" onclick="toggleEmpTab(this,'limp-${emp.replace(/\s/g,'_')}','coc-${emp.replace(/\s/g,'_')}')">Limpiezas</button>
+          <button class="mtab" onclick="toggleEmpTab(this,'coc-${emp.replace(/\s/g,'_')}','limp-${emp.replace(/\s/g,'_')}')">Cocciones</button>
+        </div>
+        <div id="limp-${emp.replace(/\s/g,'_')}">${limpHTML}</div>
+        <div id="coc-${emp.replace(/\s/g,'_')}" style="display:none">${cocHTML}</div>
+      </div>`;
+    }).join('');
+
+  // ABM empleados
+  const abmHTML=`<div class="card">
+    <div class="ctitle">Gestión de empleados</div>
+    <div class="info-box">Los empleados cargados acá aparecen en el campo "Responsable" de cada proceso.</div>
+    <div class="frow">
+      <div class="fg"><label>Nombre</label><input type="text" id="emp2-nombre" placeholder="Ej: Juan Pérez"></div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="addEmpleadoDesdeTab()">+ Agregar</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+      ${(DB.empleados||[]).length===0?'<span style="color:#888;font-size:12px">Sin empleados cargados.</span>'
+        :(DB.empleados||[]).map((e,i)=>`<div style="display:flex;align-items:center;gap:6px;background:#f0efe8;border-radius:99px;padding:4px 12px;font-size:12px">
+          ${e}<button class="btn-sm" style="margin-left:4px" onclick="delEmpleadoDesdeTab(${i})">×</button>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  el.innerHTML=`<p class="sechead">Empleados</p>${abmHTML}${empCards}`;
+}
+
+function toggleEmpTab(btn,showId,hideId){
+  document.getElementById(showId).style.display='';
+  document.getElementById(hideId).style.display='none';
+  btn.closest('.modo-tabs').querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addEmpleadoDesdeTab(){
+  const nombre=document.getElementById('emp2-nombre').value.trim();
+  if(!nombre){alert('Ingresá un nombre.');return;}
+  if(!DB.empleados)DB.empleados=[];
+  if(DB.empleados.includes(nombre)){alert('Ya existe ese empleado.');return;}
+  DB.empleados.push(nombre);saveDB();renderEmpleados();
+}
+
+function delEmpleadoDesdeTab(i){
+  if(!confirm('¿Eliminar este empleado?'))return;
+  DB.empleados.splice(i,1);saveDB();renderEmpleados();
+}
+
+function calcCostoKgPromedio(proteina, mes){
+  // Promedio ponderado del costo de MP comprada (filtrado por mes si se pasa)
+  let ings=DB.ingresos.filter(r=>r.proteina===proteina);
+  if(mes)ings=ings.filter(r=>r.fecha&&r.fecha.slice(0,7)===mes);
+  if(!ings.length)ings=DB.ingresos.filter(r=>r.proteina===proteina); // fallback todos
+  const totalKg=ings.reduce((a,r)=>a+r.kg_bruto,0);
+  const totalCosto=ings.reduce((a,r)=>a+(r.kg_bruto*(r.costo_kg||0)),0);
+  return totalKg>0?totalCosto/totalKg:0;
+}
+
+function calcCostoUnitario(prod, mes){
+  const kgTeo=calcKgMPTeorico(prod);
+  const costoKg=calcCostoKgPromedio(prod.proteina, mes);
+  return kgTeo*costoKg;
+}
+
+function renderFinanzas(){
+  const el=document.getElementById('finanzas');
+  if(!el)return;
+
+  // Meses disponibles
+  const mesesVentas=[...new Set(DB.ventas.map(v=>v.fecha?.slice(0,7)).filter(Boolean))].sort().reverse();
+  const mesesIngresos=[...new Set(DB.ingresos.map(v=>v.fecha?.slice(0,7)).filter(Boolean))].sort().reverse();
+  const meses=[...new Set([...mesesVentas,...mesesIngresos])].sort().reverse();
+  const selMes=document.getElementById('fin-mes')?.value||meses[0]||'';
+
+  // Ventas del período
+  const ventasMes=selMes?DB.ventas.filter(v=>v.fecha?.slice(0,7)===selMes):DB.ventas;
+
+  // Calcular por producto: unidades vendidas, ingreso, costo MP, food cost, CM
+  const statsProducto={};
+  DB.productos.forEach(p=>{
+    const unidades=ventasMes.filter(v=>v.ptKey===p.ptKey).reduce((a,v)=>a+v.unidades,0);
+    const precio=p.precio_venta||0;
+    const costoU=calcCostoUnitario(p, selMes);
+    const ingresoTotal=unidades*precio;
+    const costoTotal=unidades*costoU;
+    const cm=precio-costoU; // contribución marginal unitaria
+    const cmTotal=unidades*cm;
+    const fc=precio>0?costoU/precio*100:null;
+    const markup=costoU>0?precio/costoU:null;
+    statsProducto[p.ptKey]={prod:p,unidades,precio,costoU,ingresoTotal,costoTotal,cm,cmTotal,fc,markup};
+  });
+
+  // Totales del período
+  const totalIngreso=Object.values(statsProducto).reduce((a,s)=>a+s.ingresoTotal,0);
+  const totalCostoVentas=Object.values(statsProducto).reduce((a,s)=>a+s.costoTotal,0);
+  const totalCM=Object.values(statsProducto).reduce((a,s)=>a+s.cmTotal,0);
+  const fcGlobal=totalIngreso>0?totalCostoVentas/totalIngreso*100:0;
+
+  // Valor del stock actual (PT)
+  const stockValor=DB.productos.map(p=>{
+    const unidadesStock=DB.pt[p.ptKey]||0;
+    const precio=p.precio_venta||0;
+    return {prod:p,unidades:unidadesStock,valor:unidadesStock*precio};
+  }).filter(s=>s.unidades>0||s.prod.precio_venta>0);
+  const totalStockValor=stockValor.reduce((a,s)=>a+s.valor,0);
+
+  // Costo MP comprada en el período
+  const ingresosMes=selMes?DB.ingresos.filter(r=>r.fecha?.slice(0,7)===selMes):DB.ingresos;
+  const totalCostoMP=ingresosMes.reduce((a,r)=>a+(r.kg_bruto*(r.costo_kg||0)),0);
+
+  // Food cost real = costo MP / (vendido + stock)
+  const fcReal=totalIngreso+totalStockValor>0?totalCostoMP/(totalIngreso+totalStockValor)*100:0;
+
+  // Ranking por CM total
+  const ranking=Object.values(statsProducto).filter(s=>s.unidades>0).sort((a,b)=>b.cmTotal-a.cmTotal);
+
+  el.innerHTML=`
+  <p class="sechead">Finanzas</p>
+  <div class="month-filter">
+    <label style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.04em">Período</label>
+    <select style="width:auto;min-width:140px" onchange="renderFinanzas()" id="fin-mes">
+      <option value="">Todos los períodos</option>
+      ${meses.map(m=>`<option value="${m}"${m===selMes?' selected':''}>${m}</option>`).join('')}
+    </select>
+  </div>
+
+  <div style="font-size:12px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Resumen del período</div>
+  <div class="kgrid" style="margin-bottom:1.5rem">
+    <div class="kcard ok">
+      <div class="klabel">Ingreso por ventas</div>
+      <div class="kval">$${fmt(totalIngreso,0)}</div>
+      <div class="ksub">${Object.values(statsProducto).reduce((a,s)=>a+s.unidades,0)} unidades</div>
+    </div>
+    <div class="kcard ${fcGlobal<35?'ok':fcGlobal<50?'warn':'danger'}">
+      <div class="klabel">Food cost (vendido)</div>
+      <div class="kval">${fcGlobal.toFixed(1)}%</div>
+      <div class="ksub">$${fmt(totalCostoVentas,0)} costo MP</div>
+    </div>
+    <div class="kcard ok">
+      <div class="klabel">Contribución marginal</div>
+      <div class="kval">$${fmt(totalCM,0)}</div>
+      <div class="ksub">${totalIngreso>0?(totalCM/totalIngreso*100).toFixed(1)+'% del ingreso':'—'}</div>
+    </div>
+    <div class="kcard">
+      <div class="klabel">Stock actual valorizado</div>
+      <div class="kval">$${fmt(totalStockValor,0)}</div>
+      <div class="ksub">a precio de venta</div>
+    </div>
+    <div class="kcard ${fcReal<35?'ok':fcReal<50?'warn':'danger'}">
+      <div class="klabel">Food cost real</div>
+      <div class="kval">${fcReal.toFixed(1)}%</div>
+      <div class="ksub">MP / (ventas + stock)</div>
+    </div>
+    <div class="kcard">
+      <div class="klabel">MP comprada</div>
+      <div class="kval">$${fmt(totalCostoMP,0)}</div>
+      <div class="ksub">en el período</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Análisis por producto</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Producto</th><th>Precio venta</th><th>Costo MP/u</th><th>Food cost</th><th>Markup</th><th>CM unitaria</th><th>Und. vendidas</th><th>Ingreso total</th><th>CM total</th></tr></thead>
+      <tbody>${DB.productos.map(p=>{
+        const s=statsProducto[p.ptKey];
+        if(!s)return'';
+        const fc=s.fc;
+        const fcColor=fc===null?'#aaa':fc<30?'#085041':fc<40?'#1D9E75':fc<50?'#854f0b':'#a32d2d';
+        const cmColor=s.cm>0?'#085041':'#a32d2d';
+        return `<tr>
+          <td>${p.nombre}</td>
+          <td>${p.precio_venta?'$'+fmt(p.precio_venta,0):'<span style="color:#ccc">—</span>'}</td>
+          <td style="color:#888">$${fmt(s.costoU,1)}</td>
+          <td style="font-weight:600;color:${fcColor}">${fc!==null?fc.toFixed(1)+'%':'—'}</td>
+          <td style="color:#888">${s.markup?s.markup.toFixed(2)+'x':'—'}</td>
+          <td style="font-weight:600;color:${cmColor}">${s.cm?'$'+fmt(s.cm,1):'—'}</td>
+          <td style="font-weight:${s.unidades>0?'600':'400'};color:${s.unidades>0?'#1a1a1a':'#ccc'}">${s.unidades||'—'}</td>
+          <td>${s.ingresoTotal?'$'+fmt(s.ingresoTotal,0):'<span style="color:#ccc">—</span>'}</td>
+          <td style="font-weight:600;color:${s.cmTotal>0?'#085041':'#888'}">${s.cmTotal?'$'+fmt(s.cmTotal,0):'—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>
+
+  ${ranking.length>0?`<div class="card">
+    <div class="ctitle">Ranking por contribución marginal</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${ranking.map((s,i)=>{
+        const pct=totalCM>0?s.cmTotal/totalCM*100:0;
+        const barColor=i<3?'#1D9E75':i<7?'#EF9F27':'#aaa';
+        return `<div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:#888;width:16px;text-align:right">${i+1}</span>
+          <span style="font-size:12px;min-width:200px">${s.prod.nombre}</span>
+          <div style="flex:1;background:#f0efe8;border-radius:4px;height:8px">
+            <div style="width:${Math.min(pct,100)}%;background:${barColor};height:8px;border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;min-width:80px;text-align:right">$${fmt(s.cmTotal,0)}</span>
+          <span style="font-size:10px;color:#888;min-width:40px">${pct.toFixed(1)}%</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`:''}
+
+  <div class="card">
+    <div class="ctitle">Stock actual valorizado</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Producto</th><th>Unidades en stock</th><th>Precio venta</th><th>Valor</th></tr></thead>
+      <tbody>${stockValor.sort((a,b)=>b.valor-a.valor).map(s=>`<tr>
+        <td>${s.prod.nombre}</td>
+        <td style="font-weight:600">${s.unidades}</td>
+        <td>${s.prod.precio_venta?'$'+fmt(s.prod.precio_venta,0):'<span style="color:#ccc">— sin precio</span>'}</td>
+        <td style="font-weight:600;color:#085041">${s.valor?'$'+fmt(s.valor,0):'<span style="color:#ccc">—</span>'}</td>
+      </tr>`).join('')}
+      <tr style="border-top:2px solid #e5e5e0">
+        <td colspan="3" style="font-weight:600">Total stock valorizado</td>
+        <td style="font-weight:700;color:#085041;font-size:14px">$${fmt(totalStockValor,0)}</td>
+      </tr>
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
 function renderAdmin(){
   if(CU.role!=='gerente'){document.getElementById('admin').innerHTML='<p style="color:#a32d2d">Acceso solo para gerente.</p>';return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','finanzas'];
   const el=document.getElementById('admin');
   el.innerHTML=`
   <p class="sechead">Panel de administración</p>
@@ -2178,7 +2488,7 @@ function addUser(){
   const role=document.getElementById('nu-role').value;
   if(!nombre||!id||!pass){alert('Completá todos los campos.');return;}
   if(DB.users.find(u=>u.id===id)){alert('Ya existe un usuario con ese ID.');return;}
-  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad'];
+  const TABS=['resumen','ingreso','proceso','stock','ventas','balance','config','calidad','empleados','finanzas'];
   const perms={admin:false};
   TABS.forEach(t=>perms[t]=role==='gerente'?true:['resumen','ingreso','proceso'].includes(t));
   DB.users.push({id,nombre,pass,role,perms});
@@ -2367,6 +2677,8 @@ loadDBFromSupabase().then(data=>{
           <button class="tab" data-tab="balance" onclick="showTab('balance',this)">Balance</button>
           <button class="tab" data-tab="config" onclick="showTab('config',this)">Configuración</button>
           <button class="tab" data-tab="calidad" onclick="showTab('calidad',this)">Calidad</button>
+          <button class="tab" data-tab="empleados" onclick="showTab('empleados',this)">Empleados</button>
+          <button class="tab" data-tab="finanzas" onclick="showTab('finanzas',this)">Finanzas</button>
           <button class="tab" id="tab-admin" style="display:none" data-tab="admin" onclick="showTab('admin',this)">Admin</button>
         </div>
         <div class="user-bar">
@@ -2385,6 +2697,8 @@ loadDBFromSupabase().then(data=>{
       <div id="balance" class="sec"></div>
       <div id="config" class="sec"></div>
       <div id="calidad" class="sec"></div>
+      <div id="empleados" class="sec"></div>
+      <div id="finanzas" class="sec"></div>
       <div id="admin" class="sec"></div>
     </div>`;
   initLoginSelect();
