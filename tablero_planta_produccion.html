@@ -146,7 +146,9 @@ const DEFAULT_SUBSTOCKS = {
     {key:'tapa_brisket_crudo', label:'Brisket crudo',             estado:'crudo', type:'kg', color:'#e6f1fb', tc:'#0c447c'},
     {key:'tapa_recortes_crudo',label:'Recortes tapa crudo',       estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'tapa_brisket_cocido',label:'Brisket cocido',            estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'tapa_brisket_cocido_abierto',label:'Brisket cocido (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'tapa_recortes_cocido',label:'Recortes tapa cocido',     estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'tapa_recortes_cocido_abierto',label:'Recortes tapa cocido (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Pechuga': [
     {key:'pechuga_mp',              label:'Pechuga (entera)',          estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
@@ -158,8 +160,11 @@ const DEFAULT_SUBSTOCKS = {
     {key:'pechuga_medallon_170_cocido',label:'Medallones cocidos 170g',estado:'cocido',type:'u',  gramos:170, color:'#e1f5ee', tc:'#085041'},
     {key:'pechuga_medallon_250_cocido',label:'Medallones cocidos 250g',estado:'cocido',type:'u',  gramos:250, color:'#e1f5ee', tc:'#085041'},
     {key:'pechuga_medallon_lpu_cocido',label:'Medallón LPU cocido (kg)',estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'pechuga_medallon_lpu_cocido_abierto',label:'Medallón LPU cocido (abierto)',estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'pechuga_cubos_cocido',    label:'Cubos cocidos',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'pechuga_cubos_cocido_abierto',label:'Cubos cocidos (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'pechuga_tiras_cocido',    label:'Tiras cocidas',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'pechuga_tiras_cocido_abierto',label:'Tiras cocidas (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Solomillo': [
     {key:'solomillo_mp',              label:'Solomillo (entero)',       estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
@@ -167,12 +172,15 @@ const DEFAULT_SUBSTOCKS = {
     {key:'solomillo_tiras_crudo',     label:'Tiras crudas',            estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'solomillo_medallon_170_cocido',label:'Medallones cocidos 170g',estado:'cocido',type:'u',gramos:170, color:'#e1f5ee', tc:'#085041'},
     {key:'solomillo_tiras_cocido',    label:'Tiras cocidas',           estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'solomillo_tiras_cocido_abierto',label:'Tiras cocidas (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Bondiola': [
     {key:'bondiola_mp',           label:'Bondiola (entera)',            estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
     {key:'bondiola_lpu',          label:'Bondiola LPU (limpia)',        estado:'lpu',   type:'kg', color:'#e6f1fb', tc:'#0c447c'},
     {key:'bondiola_cocida_medallon',label:'Bondiola cocida (medallón)',  estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'bondiola_cocida_medallon_abierto',label:'Bondiola cocida medallón (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'bondiola_cocida_pulled', label:'Bondiola cocida (pulled pork)',estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'bondiola_cocida_pulled_abierto',label:'Bondiola pulled (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Lomo': [
     {key:'lomo_mp',               label:'Lomo (entero)',                estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
@@ -183,11 +191,13 @@ const DEFAULT_SUBSTOCKS = {
     {key:'cuadril_mp',            label:'Corazón de cuadril (entero)', estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
     {key:'cuadril_tiras_crudo',   label:'Tiras crudas',               estado:'crudo', type:'kg', color:'#e6f1fb', tc:'#0c447c'},
     {key:'cuadril_tiras_cocido',  label:'Tiras cocidas',              estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'cuadril_tiras_cocido_abierto',label:'Tiras cocidas (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Roast Beef': [
     {key:'roastbeef_mp',          label:'Roast Beef (entero)',         estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
     {key:'roastbeef_lpu',         label:'Roast Beef LPU (limpio)',     estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
     {key:'roastbeef_lpu_cocido',  label:'Roast Beef LPU cocido',       estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'roastbeef_lpu_cocido_abierto',label:'Roast Beef LPU cocido (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ]
 };
 
@@ -1461,20 +1471,18 @@ function calcCoccion(){
 }
 
 function updateArmadoSalidaLabel(){
-  // Check if destination product uses units or kg
-  const sel=document.getElementById('pf-producto');
-  if(!sel) return;
-  const prod=DB.productos.find(p=>p.ptKey===sel.value);
-  const ssDef=prod?findSSdef(prod.substock):null;
-  const label=document.getElementById('pf-salida-label');
-  const input=document.getElementById('pf-unidades');
-  if(!label||!input) return;
-  if(ssDef?.type==='u'){
-    label.textContent='Unidades obtenidas';
-    input.step='1';input.placeholder='0';
-  } else {
-    label.textContent='Kg obtenidos';
-    input.step='0.01';input.placeholder='0.00';
+  // Actualizar label de origen (kg vs unidades) según sub-stock seleccionado
+  const origenSel=document.getElementById('pf-origen');
+  const origenKey=origenSel?.value;
+  const ssDef=origenKey?findSSdef(origenKey):null;
+  const kginLabel=document.getElementById('pf-kgin-label');
+  if(kginLabel){
+    kginLabel.textContent=ssDef?.type==='u'?'Unidades de sub-stock usadas':'Kg de sub-stock usado';
+  }
+  const kginInput=document.getElementById('pf-kgin');
+  if(kginInput&&ssDef){
+    kginInput.step=ssDef.type==='u'?'1':'0.01';
+    kginInput.placeholder=ssDef.type==='u'?'0':'0.00';
   }
 }
 
@@ -1486,15 +1494,27 @@ function onProductoArmadoChange(){
   if(substock){
     const origenSel=document.getElementById('pf-origen');
     if(origenSel){
+      // Primero intentar seleccionar el _abierto del sub-stock del producto si tiene stock
+      const abiertoKey=substock+'_abierto';
+      let found=false;
       for(let i=0;i<origenSel.options.length;i++){
-        if(origenSel.options[i].value===substock){
-          origenSel.selectedIndex=i;
-          break;
+        if(origenSel.options[i].value===abiertoKey){
+          const ssVal=getSS(abiertoKey);
+          if(ssVal>0){origenSel.selectedIndex=i;found=true;break;}
+        }
+      }
+      // Si no hay stock en _abierto, seleccionar el sub-stock directo
+      if(!found){
+        for(let i=0;i<origenSel.options.length;i++){
+          if(origenSel.options[i].value===substock){
+            origenSel.selectedIndex=i;
+            break;
+          }
         }
       }
     }
   }
-  // Actualizar label del campo kgin según tipo del sub-stock origen
+  // Actualizar label y step del campo kgin según tipo del sub-stock origen seleccionado
   const origenSel=document.getElementById('pf-origen');
   const origenKey=origenSel?.value;
   const ssDef=origenKey?findSSdef(origenKey):null;
@@ -1534,17 +1554,6 @@ function addProcesoApertura(){
   const ssO=findSSdef(origen);
   const merma=kgin-kgout;
   const ssAbierto=origen+'_abierto';
-  // Crear sub-stock _abierto dinámicamente si no existe
-  if(!DB.substocks[activeProt].find(s=>s.key===ssAbierto)){
-    DB.substocks[activeProt].push({
-      key:ssAbierto,
-      label:(ssO?.label||origen)+' (abierto)',
-      estado:'abierto',
-      type:'kg',
-      color:'#fff3cd',
-      tc:'#856404'
-    });
-  }
   // Descuenta kgin del sub-stock cerrado, los kg netos van al sub-stock _abierto
   setSS(origen, getSS(origen)-kgin);
   setSS(ssAbierto, getSS(ssAbierto)+kgout);
@@ -2818,6 +2827,21 @@ function migrateDB(){
   // Asegurar que PT keys de wraps/ensaladas existan
   DB.productos.forEach(p=>{
     if(DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
+  });
+  // MIGRACIÓN: aperturas viejas — substock_destino era igual a substock_origen (código viejo)
+  // Detectar y mover los kg al _abierto correspondiente
+  (DB.procesos||[]).forEach(p=>{
+    if(p.tipo==='apertura' && p.substock_origen && p.substock_destino===p.substock_origen){
+      const ssAbierto=p.substock_origen+'_abierto';
+      // Marcar como migrado para no procesarlo dos veces
+      if(!p._migrado_abierto){
+        // Quitar kg_out del sub-stock cerrado y ponerlos en el _abierto
+        setSS(p.substock_origen, Math.max(0, getSS(p.substock_origen)-p.kg_out));
+        setSS(ssAbierto, getSS(ssAbierto)+p.kg_out);
+        p.substock_destino=ssAbierto;
+        p._migrado_abierto=true;
+      }
+    }
   });
 }
 
