@@ -1407,6 +1407,9 @@ function renderProcesoForm(){
         <div class="fg"><label>Sub-stock (bolsas cocidas)</label>
           <select id="pf-origen">${subsCocidos.map(s=>`<option value="${s.key}">${s.label} — ${fmt(getSS(s.key),2)} kg disponibles</option>`).join('')}</select>
         </div>
+        <div class="fg" style="max-width:190px"><label>Lote <span style="font-size:10px;color:#888">(qué lote abrís)</span></label>
+          <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
+        </div>
         ${respField}
       </div>
       <div class="frow">
@@ -1426,7 +1429,7 @@ function renderProcesoForm(){
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen</label>
-          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='abierto'),...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
+          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${buildOrigenArmado(subs,prodsProt)}</select>
         </div>
         <div class="fg"><label>Producto a generar</label>
           <select id="pf-producto" onchange="onProductoArmadoChange()">${prodsProt.map(p=>{
@@ -1468,6 +1471,32 @@ function calcCoccion(){
   const prev=document.getElementById('pf-prev');if(!prev)return;
   const teo=DB.teorico[activeProt];
   prev.innerHTML=`Rendimiento: <strong>${ki>0?(ko/ki*100).toFixed(1):'-'}%</strong>${teo?.coccion_pct?` | Teórico: <strong>${teo.coccion_pct}%</strong>`:''} | Merma: <strong>${fmt(ki-ko,2)} kg</strong>`;
+}
+
+function buildOrigenArmado(subs, prodsProt){
+  // Construye las opciones del selector de origen en Armado.
+  // Para cada producto de la proteína, el origen válido es:
+  //   1. El _abierto del substock del producto (si existe y tiene stock)
+  //   2. El substock cerrado del producto
+  // Se muestran todos los origenes posibles de todos los productos, sin duplicar.
+  const seen=new Set();
+  const options=[];
+  // Agregar _abiertos primero (orden de prioridad)
+  prodsProt.forEach(p=>{
+    const abiertoKey=p.substock+'_abierto';
+    if(!seen.has(abiertoKey)){
+      const ssDef=subs.find(s=>s.key===abiertoKey);
+      if(ssDef){seen.add(abiertoKey);options.push(ssDef);}
+    }
+  });
+  // Luego cerrados (cocido/crudo/lpu)
+  prodsProt.forEach(p=>{
+    if(!seen.has(p.substock)){
+      const ssDef=subs.find(s=>s.key===p.substock);
+      if(ssDef){seen.add(p.substock);options.push(ssDef);}
+    }
+  });
+  return options.map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('');
 }
 
 function updateArmadoSalidaLabel(){
@@ -1557,9 +1586,10 @@ function addProcesoApertura(){
   // Descuenta kgin del sub-stock cerrado, los kg netos van al sub-stock _abierto
   setSS(origen, getSS(origen)-kgin);
   setSS(ssAbierto, getSS(ssAbierto)+kgout);
+  const loteId=document.getElementById('pf-lote')?.value||'';
   DB.procesos.push({fecha,proteina:activeProt,tipo:'apertura',kg_in:kgin,kg_out:kgout,kg_desperdicio:merma,
     origen:ssO?.label||'',destino:(ssO?.label||origen)+' (abierto)',substock_origen:origen,substock_destino:ssAbierto,
-    responsable:resp,usuario:CU.nombre,id:Date.now()});
+    responsable:resp,usuario:CU.nombre,lote_id:loteId,id:Date.now()});
   saveDB();renderProceso();checkAlertas();
 }
 
@@ -2829,18 +2859,12 @@ function migrateDB(){
     if(DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
   });
   // MIGRACIÓN: aperturas viejas — substock_destino era igual a substock_origen (código viejo)
-  // Detectar y mover los kg al _abierto correspondiente
+  // Solo corregir el campo substock_destino para trazabilidad, SIN mover kg
+  // (los kg ya fueron usados en armados posteriores con el código viejo)
   (DB.procesos||[]).forEach(p=>{
     if(p.tipo==='apertura' && p.substock_origen && p.substock_destino===p.substock_origen){
-      const ssAbierto=p.substock_origen+'_abierto';
-      // Marcar como migrado para no procesarlo dos veces
-      if(!p._migrado_abierto){
-        // Quitar kg_out del sub-stock cerrado y ponerlos en el _abierto
-        setSS(p.substock_origen, Math.max(0, getSS(p.substock_origen)-p.kg_out));
-        setSS(ssAbierto, getSS(ssAbierto)+p.kg_out);
-        p.substock_destino=ssAbierto;
-        p._migrado_abierto=true;
-      }
+      p.substock_destino=p.substock_origen+'_abierto';
+      p._legacy_apertura=true; // marcar como apertura vieja para referencia
     }
   });
 }
