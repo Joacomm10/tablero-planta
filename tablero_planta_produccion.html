@@ -152,15 +152,14 @@ const DEFAULT_SUBSTOCKS = {
   ],
   'Pechuga': [
     {key:'pechuga_mp',              label:'Pechuga (entera)',          estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
-    {key:'pechuga_medallon_170_crudo',label:'Medallones crudos 170g',  estado:'crudo', type:'u',  gramos:170, color:'#e6f1fb', tc:'#0c447c'},
-    {key:'pechuga_medallon_250_crudo',label:'Medallones crudos 250g',  estado:'crudo', type:'u',  gramos:250, color:'#e6f1fb', tc:'#0c447c'},
-    {key:'pechuga_medallon_lpu',    label:'Medallón LPU (limpio, kg)', estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
+    {key:'pechuga_lpu',             label:'Pechuga LPU (limpia, kg)',  estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
+    {key:'pechuga_recortes',        label:'Pechuga recortes (kg)',     estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'pechuga_cubos_crudo',     label:'Cubos crudos',              estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
     {key:'pechuga_tiras_crudo',     label:'Tiras crudas',              estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
-    {key:'pechuga_medallon_170_cocido',label:'Medallones cocidos 170g',estado:'cocido',type:'u',  gramos:170, color:'#e1f5ee', tc:'#085041'},
-    {key:'pechuga_medallon_250_cocido',label:'Medallones cocidos 250g',estado:'cocido',type:'u',  gramos:250, color:'#e1f5ee', tc:'#085041'},
-    {key:'pechuga_medallon_lpu_cocido',label:'Medallón LPU cocido (kg)',estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
-    {key:'pechuga_medallon_lpu_cocido_abierto',label:'Medallón LPU cocido (abierto)',estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
+    {key:'pechuga_lpu_cocido',      label:'Pechuga LPU cocida (kg)',   estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'pechuga_lpu_cocido_abierto',label:'Pechuga LPU cocida (abierto)',estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
+    {key:'pechuga_recortes_cocido', label:'Recortes pechuga cocidos',  estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
+    {key:'pechuga_recortes_cocido_abierto',label:'Recortes pechuga cocidos (abierto)',estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'pechuga_cubos_cocido',    label:'Cubos cocidos',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
     {key:'pechuga_cubos_cocido_abierto',label:'Cubos cocidos (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
     {key:'pechuga_tiras_cocido',    label:'Tiras cocidas',             estado:'cocido',type:'kg', color:'#eaf3de', tc:'#27500a'},
@@ -213,12 +212,12 @@ const DEFAULT_PRODUCTOS = [
   {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Goulash 200g',             stockNombre:'Goulash - 200g'},
   {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Pulled Beef 250g',         stockNombre:'Pulled Beef - 250g'},
   // Pechuga - medallones
-  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
-  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
-  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 170g',  stockNombre:'Pechuga con tomillo - 170g'},
-  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga tomillo 250g',  stockNombre:'Pechuga con tomillo - 250g'},
-  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_medallon_170_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 170g',stockNombre:'Pechuga provenzal - 170g'},
-  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_medallon_250_cocido', chain:['limpieza'], ptKey:'Pechuga provenzal 250g',stockNombre:'Pechuga Provenzal - 250g'},
+  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
+  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
+  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga tomillo 170g',  stockNombre:'Pechuga con tomillo - 170g'},
+  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga tomillo 250g',  stockNombre:'Pechuga con tomillo - 250g'},
+  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga provenzal 170g',stockNombre:'Pechuga provenzal - 170g'},
+  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga provenzal 250g',stockNombre:'Pechuga Provenzal - 250g'},
   // Pechuga - cubos y tiras
   {nombre:'Curry de pollo - 200g',     proteina:'Pechuga', kgPorcion:0.110, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 200g',       stockNombre:'Curry de pollo - 200g'},
   {nombre:'Curry de pollo - 300g',     proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 300g',       stockNombre:'Curry de pollo - 300g'},
@@ -227,9 +226,9 @@ const DEFAULT_PRODUCTOS = [
   {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 200g', stockNombre:'Tiras de pollo con vegetales - 200g'},
   {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 300g', stockNombre:'Tiras de pollo con vegetales - 300g'},
   // Wraps y ensaladas - armado en el momento, descuenta directo del sub-stock
-  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap César',       stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Ensalada César',   stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_medallon_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap italiano',    stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap César',       stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Ensalada César',   stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap italiano',    stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo',     stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',       chain:['limpieza','coccion'], ptKey:'Wrap pastor',      stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
@@ -253,11 +252,10 @@ const DEFAULT_SS = {
   tapa_mp:74.96, tapa_brisket_crudo:0, tapa_recortes_crudo:117.6,
   tapa_brisket_cocido:0, tapa_recortes_cocido:0,
   pechuga_mp:0,
-  pechuga_medallon_170_crudo:0, pechuga_medallon_250_crudo:0,
-  pechuga_medallon_lpu:0,
+  pechuga_lpu:0, pechuga_recortes:0,
   pechuga_cubos_crudo:0, pechuga_tiras_crudo:0,
-  pechuga_medallon_170_cocido:133, pechuga_medallon_250_cocido:71,
-  pechuga_medallon_lpu_cocido:0,
+  pechuga_lpu_cocido:0, pechuga_lpu_cocido_abierto:0,
+  pechuga_recortes_cocido:0, pechuga_recortes_cocido_abierto:0,
   pechuga_cubos_cocido:15.75, pechuga_tiras_cocido:2.71,
   solomillo_mp:0, solomillo_medallon_170_crudo:0, solomillo_tiras_crudo:0,
   solomillo_medallon_170_cocido:0, solomillo_tiras_cocido:4.58,
@@ -2784,6 +2782,30 @@ function migrateDB(){
   Object.values(DEFAULT_SUBSTOCKS).flat().forEach(s=>{
     if(DB.ss[s.key]===undefined) DB.ss[s.key]=0;
   });
+  // MIGRACIÓN FLUJO PECHUGA: renombrar keys viejas si existen con stock
+  // pechuga_medallon_lpu → pechuga_lpu (mismo sub-stock, renombrado)
+  if(DB.ss['pechuga_medallon_lpu']!==undefined && DB.ss['pechuga_lpu']===0){
+    DB.ss['pechuga_lpu']=(DB.ss['pechuga_medallon_lpu']||0);
+  }
+  // pechuga_medallon_lpu_cocido → pechuga_lpu_cocido
+  if(DB.ss['pechuga_medallon_lpu_cocido']!==undefined && DB.ss['pechuga_lpu_cocido']===0){
+    DB.ss['pechuga_lpu_cocido']=(DB.ss['pechuga_medallon_lpu_cocido']||0);
+  }
+  // pechuga_medallon_lpu_cocido_abierto → pechuga_lpu_cocido_abierto
+  if(DB.ss['pechuga_medallon_lpu_cocido_abierto']!==undefined && DB.ss['pechuga_lpu_cocido_abierto']===0){
+    DB.ss['pechuga_lpu_cocido_abierto']=(DB.ss['pechuga_medallon_lpu_cocido_abierto']||0);
+  }
+  // Migrar productos de pechuga: actualizar substock de medallones al nuevo
+  if(DB.productos){
+    const mapSubstock={
+      'pechuga_medallon_170_cocido':'pechuga_lpu_cocido',
+      'pechuga_medallon_250_cocido':'pechuga_lpu_cocido',
+      'pechuga_medallon_lpu_cocido':'pechuga_lpu_cocido',
+    };
+    DB.productos.forEach(p=>{
+      if(mapSubstock[p.substock]) p.substock=mapSubstock[p.substock];
+    });
+  }
   // Migrar sub-stocks nuevos que no existen en DB.substocks
   Object.entries(DEFAULT_SUBSTOCKS).forEach(([prot,subs])=>{
     if(!DB.substocks) DB.substocks={};
@@ -2797,6 +2819,13 @@ function migrateDB(){
       });
     }
   });
+  // MIGRACIÓN PECHUGA: eliminar sub-stocks viejos de unidades que ya no se usan
+  const pechugaObsoletos=['pechuga_medallon_170_crudo','pechuga_medallon_250_crudo',
+    'pechuga_medallon_170_cocido','pechuga_medallon_250_cocido','pechuga_medallon_lpu',
+    'pechuga_medallon_lpu_cocido','pechuga_medallon_lpu_cocido_abierto'];
+  if(DB.substocks&&DB.substocks['Pechuga']){
+    DB.substocks['Pechuga']=DB.substocks['Pechuga'].filter(s=>!pechugaObsoletos.includes(s.key));
+  }
   if(!DB.teorico) DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
   // Agregar proteínas nuevas al teórico si no existen
   Object.entries(DEFAULT_TEORICO).forEach(([prot,vals])=>{
