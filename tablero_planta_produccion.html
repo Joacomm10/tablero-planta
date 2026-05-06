@@ -316,9 +316,51 @@ async function loadDBFromSupabase(){
   return null;
 }
 
+// Cola de guardado para evitar condiciones de carrera
+let _saveQueue=Promise.resolve();
+
 async function saveDB(){
+  // Encadenar en la cola: espera a que el guardado anterior termine antes de iniciar el siguiente
+  _saveQueue=_saveQueue.then(()=>_doSaveDB()).catch(()=>_doSaveDB());
+  return _saveQueue;
+}
+
+async function _doSaveDB(){
   try{
-    // Upsert — inserta si no existe, actualiza si ya existe
+    // 1. Leer estado actual de Supabase
+    const r=await fetch(`${SB_URL}/rest/v1/datos?id=eq.${SB_RECORD_ID}&select=valor`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    const remoteData=await r.json();
+    let mergedDB=DB;
+    if(remoteData&&remoteData.length>0&&remoteData[0].valor){
+      const remote=remoteData[0].valor;
+      // 2. Merge: para arrays con id, combinar ambos y deduplicar por id
+      //    Para objetos planos (ss, pt, teorico), prevalece el local (el usuario acaba de cambiar algo)
+      mergedDB={
+        ...remote,          // base remota (preserva todo lo que otro usuario haya guardado)
+        ss:DB.ss,           // stock: prevalece local (operación actual)
+        pt:DB.pt,
+        teorico:DB.teorico,
+        substocks:DB.substocks,
+        productos:DB.productos,
+        users:DB.users,
+        empleados:DB.empleados,
+        // Arrays: unir remoto + local, deduplicar por id, el más reciente gana
+        ingresos:mergeArrayById(remote.ingresos||[], DB.ingresos||[]),
+        procesos:mergeArrayById(remote.procesos||[], DB.procesos||[]),
+        ventas:mergeArrayById(remote.ventas||[], DB.ventas||[]),
+        calidad:mergeArrayById(remote.calidad||[], DB.calidad||[]),
+        lotes:mergeArrayById(remote.lotes||[], DB.lotes||[]),
+        proveedores:mergeArrayById(remote.proveedores||[], DB.proveedores||[]),
+        caidas:mergeArrayById(remote.caidas||[], DB.caidas||[]),
+        devoluciones:mergeArrayById(remote.devoluciones||[], DB.devoluciones||[]),
+        consumoInterno:mergeArrayById(remote.consumoInterno||[], DB.consumoInterno||[]),
+      };
+      // Actualizar DB local con el merge para que todos los usuarios vean consistencia
+      Object.assign(DB, mergedDB);
+    }
+    // 3. Guardar el merge en Supabase
     await fetch(`${SB_URL}/rest/v1/datos`,{
       method:'POST',
       headers:{
@@ -327,9 +369,20 @@ async function saveDB(){
         'Content-Type':'application/json',
         'Prefer':'resolution=merge-duplicates'
       },
-      body:JSON.stringify({id:SB_RECORD_ID, valor:DB, updated_at:new Date().toISOString()})
+      body:JSON.stringify({id:SB_RECORD_ID, valor:mergedDB, updated_at:new Date().toISOString()})
     });
-  }catch(e){console.error('Error guardando en Supabase:',e);}
+    return true;
+  }catch(e){console.error('Error guardando en Supabase:',e);return false;}
+}
+
+function mergeArrayById(remote, local){
+  // Une dos arrays, deduplicando por id. En caso de conflicto, local gana.
+  const map=new Map();
+  remote.forEach(item=>{if(item.id)map.set(item.id,item);});
+  local.forEach(item=>{if(item.id)map.set(item.id,item);});
+  // Items sin id: agregar ambos (no se puede deduplicar)
+  const sinId=[...remote,...local].filter(i=>!i.id);
+  return [...map.values(),...sinId];
 }
 
 // DB en memoria — se carga al iniciar
@@ -1363,13 +1416,16 @@ function renderProcesoForm(){
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen</label>
-          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
+          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${[...subs.filter(s=>s.estado==='abierto'),...subs.filter(s=>s.estado==='cocido'),...subs.filter(s=>s.estado==='crudo')].map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
         </div>
         <div class="fg"><label>Producto a generar</label>
           <select id="pf-producto" onchange="onProductoArmadoChange()">${prodsProt.map(p=>{
             const kgTeo=calcKgMPTeorico(p);
             return `<option value="${p.ptKey}" data-substock="${p.substock}">${p.nombre} (porción: ${fmt(p.kgPorcion,3)} kg | MP teo: ${fmt(kgTeo,3)} kg)</option>`;
           }).join('')}</select>
+        </div>
+        <div class="fg" style="max-width:160px"><label>Lote</label>
+          <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
         </div>
         ${respField}
       </div>
@@ -1477,10 +1533,23 @@ function addProcesoApertura(){
   if(getSS(origen)<kgin){if(!confirm(`Stock insuficiente: hay ${fmt(getSS(origen),2)} kg. ¿Continuás?`))return;}
   const ssO=findSSdef(origen);
   const merma=kgin-kgout;
-  // Descuenta kgin del sub-stock, suma kgout (el neto es restar la merma)
-  setSS(origen, getSS(origen)-kgin+kgout);
+  const ssAbierto=origen+'_abierto';
+  // Crear sub-stock _abierto dinámicamente si no existe
+  if(!DB.substocks[activeProt].find(s=>s.key===ssAbierto)){
+    DB.substocks[activeProt].push({
+      key:ssAbierto,
+      label:(ssO?.label||origen)+' (abierto)',
+      estado:'abierto',
+      type:'kg',
+      color:'#fff3cd',
+      tc:'#856404'
+    });
+  }
+  // Descuenta kgin del sub-stock cerrado, los kg netos van al sub-stock _abierto
+  setSS(origen, getSS(origen)-kgin);
+  setSS(ssAbierto, getSS(ssAbierto)+kgout);
   DB.procesos.push({fecha,proteina:activeProt,tipo:'apertura',kg_in:kgin,kg_out:kgout,kg_desperdicio:merma,
-    origen:ssO?.label||'',destino:ssO?.label||'',substock_origen:origen,substock_destino:origen,
+    origen:ssO?.label||'',destino:(ssO?.label||origen)+' (abierto)',substock_origen:origen,substock_destino:ssAbierto,
     responsable:resp,usuario:CU.nombre,id:Date.now()});
   saveDB();renderProceso();checkAlertas();
 }
@@ -1549,6 +1618,7 @@ function addProcesoArmado(){
   const unidades=parseInt(document.getElementById('pf-unidades').value);
   const recorte=parseFloat(document.getElementById('pf-recorte').value)||0;
   const resp=document.getElementById('pf-resp')?.value||'';
+  const loteId=document.getElementById('pf-lote')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(unidades)||kgin<=0||unidades<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);
   if(getSS(origen)<kgin){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
@@ -1556,7 +1626,7 @@ function addProcesoArmado(){
   setPT(ptKey,getPT(ptKey)+unidades);
   DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',kg_in:kgin,kg_out:kgin-recorte,kg_desperdicio:recorte,
     unidades,origen:ssO?.label||'',destino:ptKey,substock_origen:origen,
-    responsable:resp,usuario:CU.nombre,id:Date.now()});
+    responsable:resp,usuario:CU.nombre,lote_id:loteId,id:Date.now()});
   saveDB();renderProceso();checkAlertas();
 }
 
@@ -1573,8 +1643,10 @@ function delProceso(i){
     setSS(p.substock_destino,Math.max(0,getSS(p.substock_destino)-p.kg_out));
   }
   if(p.tipo==='apertura'){
-    // Revierte: devuelve la merma al sub-stock (vuelve al peso original pre-apertura)
-    setSS(p.substock_origen, getSS(p.substock_origen)+p.kg_in-p.kg_out);
+    // Revierte: devuelve kg_in al origen y saca kg_out del _abierto
+    setSS(p.substock_origen, getSS(p.substock_origen)+p.kg_in);
+    const ssAbierto=p.substock_destino||p.substock_origen+'_abierto';
+    setSS(ssAbierto, Math.max(0,getSS(ssAbierto)-p.kg_out));
   }
   if(p.tipo==='armado'){
     setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);
