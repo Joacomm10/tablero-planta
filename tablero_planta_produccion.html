@@ -2795,24 +2795,26 @@ function migrateDB(){
   if(DB.ss['pechuga_medallon_lpu_cocido_abierto']!==undefined && DB.ss['pechuga_lpu_cocido_abierto']===0){
     DB.ss['pechuga_lpu_cocido_abierto']=(DB.ss['pechuga_medallon_lpu_cocido_abierto']||0);
   }
-  // También migrar el stock que viene de la apertura vieja (_legacy_apertura)
-  // La apertura del 05/05 registró kg_out en 'pechuga_medallon_lpu_cocido' (código viejo sin _abierto)
-  // Detectar: si hay procesos de apertura legacy cuyo kg_out no está reflejado en el _abierto
-  {
+  // Migrar aperturas de pechuga viejas: mover kg_out del cerrado al _abierto
+  // Condición directa: aperturas cuyo substock_destino no termina en '_abierto'
+  // (no depende de flags que pueden no haberse guardado aún en Supabase)
+  if(DB.ss['pechuga_lpu_cocido_abierto']===0){
     const aperturasPechuga=(DB.procesos||[]).filter(p=>
-      p.tipo==='apertura' && p.proteina==='Pechuga' &&
+      p.tipo==='apertura' &&
       (p.substock_origen==='pechuga_medallon_lpu_cocido'||p.substock_origen==='pechuga_lpu_cocido') &&
-      p._legacy_apertura && !p._migrado_abierto_v2
+      !p.substock_destino?.endsWith('_abierto')
     );
+    let totalAMover=0;
     aperturasPechuga.forEach(p=>{
-      // Mover kg_out del cerrado al abierto
-      const kgEnCerrado=DB.ss['pechuga_lpu_cocido']||0;
-      const kgAMover=Math.min(p.kg_out, kgEnCerrado);
-      DB.ss['pechuga_lpu_cocido']=Math.max(0, kgEnCerrado-kgAMover);
-      DB.ss['pechuga_lpu_cocido_abierto']=(DB.ss['pechuga_lpu_cocido_abierto']||0)+kgAMover;
-      p._migrado_abierto_v2=true;
+      totalAMover+=p.kg_out||0;
       p.substock_destino='pechuga_lpu_cocido_abierto';
     });
+    if(totalAMover>0){
+      const kgEnCerrado=DB.ss['pechuga_lpu_cocido']||0;
+      const kgAMover=Math.min(totalAMover, kgEnCerrado);
+      DB.ss['pechuga_lpu_cocido']=Math.max(0, kgEnCerrado-kgAMover);
+      DB.ss['pechuga_lpu_cocido_abierto']=kgAMover;
+    }
   }
   // Migrar productos de pechuga: actualizar substock de medallones al nuevo
   if(DB.productos){
