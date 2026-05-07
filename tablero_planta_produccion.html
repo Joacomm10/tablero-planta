@@ -2795,6 +2795,25 @@ function migrateDB(){
   if(DB.ss['pechuga_medallon_lpu_cocido_abierto']!==undefined && DB.ss['pechuga_lpu_cocido_abierto']===0){
     DB.ss['pechuga_lpu_cocido_abierto']=(DB.ss['pechuga_medallon_lpu_cocido_abierto']||0);
   }
+  // También migrar el stock que viene de la apertura vieja (_legacy_apertura)
+  // La apertura del 05/05 registró kg_out en 'pechuga_medallon_lpu_cocido' (código viejo sin _abierto)
+  // Detectar: si hay procesos de apertura legacy cuyo kg_out no está reflejado en el _abierto
+  {
+    const aperturasPechuga=(DB.procesos||[]).filter(p=>
+      p.tipo==='apertura' && p.proteina==='Pechuga' &&
+      (p.substock_origen==='pechuga_medallon_lpu_cocido'||p.substock_origen==='pechuga_lpu_cocido') &&
+      p._legacy_apertura && !p._migrado_abierto_v2
+    );
+    aperturasPechuga.forEach(p=>{
+      // Mover kg_out del cerrado al abierto
+      const kgEnCerrado=DB.ss['pechuga_lpu_cocido']||0;
+      const kgAMover=Math.min(p.kg_out, kgEnCerrado);
+      DB.ss['pechuga_lpu_cocido']=Math.max(0, kgEnCerrado-kgAMover);
+      DB.ss['pechuga_lpu_cocido_abierto']=(DB.ss['pechuga_lpu_cocido_abierto']||0)+kgAMover;
+      p._migrado_abierto_v2=true;
+      p.substock_destino='pechuga_lpu_cocido_abierto';
+    });
+  }
   // Migrar productos de pechuga: actualizar substock de medallones al nuevo
   if(DB.productos){
     const mapSubstock={
