@@ -1812,15 +1812,38 @@ async function importarPedidos(){
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
-    // Procesar filas individualmente (sin agrupar) para poder borrar cada una por separado
+    // DEBUG: mostrar estructura de primeras filas para diagnosticar
+    const debugInfo = rows.slice(0,5).map((row,i)=>{
+      if(!row.c) return `fila ${i}: sin celdas`;
+      return `fila ${i}: `+row.c.slice(0,6).map((c,j)=>c?`[${j}]v=${JSON.stringify(c.v)} f=${JSON.stringify(c.f)}`:`[${j}]null`).join(' | ');
+    }).join('\n');
+    console.log('DEBUG planilla:', debugInfo);
+
+    // Detectar automáticamente columnas de producto y cantidad
+    // buscando la fila 0 (encabezado) o la primera fila con datos
+    let colProd = 3, colCant = 4; // defaults
+    if(rows.length>0 && rows[0].c){
+      rows[0].c.forEach((c,i)=>{
+        const val=(c?.f??c?.v)?.toString().toLowerCase()||'';
+        if(val.includes('base')||val.includes('producto')) colProd=i;
+        if(val.includes('cant')||val.includes('cantidad')) colCant=i;
+      });
+    }
+    console.log('Columnas detectadas: prod='+colProd+' cant='+colCant);
+
+    // Procesar filas individualmente
     const filas = [];
-    rows.forEach(row=>{
-      if(!row.c||!row.c[0]||!row.c[3]||!row.c[4]) return;
-      // Columna D puede tener dropdown: usar .f (formatted) si existe, sino .v
-      const prod = (row.c[3].f ?? row.c[3].v)?.toString().trim();
-      // Columna E: cantidad siempre numérica
-      const cant = parseInt(row.c[4].v ?? row.c[4].f)||0;
+    rows.forEach((row,ri)=>{
+      if(!row.c) return;
+      const cProd = row.c[colProd];
+      const cCant = row.c[colCant];
+      if(!cProd||!cCant) return;
+      // Usar .f (formatted) primero para celdas con dropdown
+      const prod = (cProd.f ?? cProd.v)?.toString().trim();
+      const cant = parseInt(cCant.v ?? cCant.f)||0;
       if(!prod||cant<=0) return;
+      // Ignorar si prod parece un número (fila de total/índice)
+      if(/^\d+$/.test(prod)) return;
       filas.push({prod, cant});
     });
 
