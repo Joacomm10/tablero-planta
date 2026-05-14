@@ -754,6 +754,8 @@ function checkAlertas(){
     if(v<2&&v>0)alerts.push(`Stock bajo: ${s.label} — ${fmtSS(s.key,v)}`);
   });
   Object.entries(DB.pt).forEach(([k,v])=>{
+    const prod=DB.productos.find(p=>p.ptKey===k);
+    if(prod?.ventaDirecta) return; // no mostrar alerta para ventaDirecta
     if(v<=5&&v>0)alerts.push(`Stock bajo PT: ${k} — ${v} u.`);
   });
   ac.innerHTML=alerts.map(a=>`<div class="alert-row">${a}</div>`).join('');
@@ -1702,7 +1704,7 @@ function renderStock(){
   let html=`<p class="sechead">Stock completo por proteína</p>`;
   Object.entries(DB.substocks).forEach(([prot,subs])=>{
     const prodsProt=DB.productos.filter(p=>p.proteina===prot);
-    const ptKeys=[...new Set(prodsProt.map(p=>p.ptKey))];
+    const ptKeys=[...new Set(prodsProt.filter(p=>!p.ventaDirecta).map(p=>p.ptKey))];
     html+=`<div class="card">
       <div class="ctitle" style="margin-bottom:10px">${prot}</div>
       <div class="section-2col">
@@ -3070,9 +3072,9 @@ function migrateDB(){
       if(def?.substock&&p.substock!==def.substock&&def.ventaDirecta) p.substock=def.substock;
     });
   }
-  // Asegurar que PT keys de wraps/ensaladas existan
+  // Asegurar que PT keys existan (excepto ventaDirecta que no tienen stock propio)
   DB.productos.forEach(p=>{
-    if(DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
+    if(!p.ventaDirecta && DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
   });
   // MIGRACIÓN: aperturas viejas — substock_destino era igual a substock_origen (código viejo)
   // Solo corregir el campo substock_destino para trazabilidad, SIN mover kg
