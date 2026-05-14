@@ -1696,6 +1696,7 @@ function delProceso(i){
 // STOCK
 // ============================================================
 function renderStock(){
+  checkAlertas();
   const el=document.getElementById('stock');
   const puedeEditar=CU.role==='gerente';
   let html=`<p class="sechead">Stock completo por proteína</p>`;
@@ -3047,11 +3048,10 @@ loadDBFromSupabase().then(data=>{
           <button class="btn btn-primary" style="font-size:11px;padding:5px 12px" onclick="exportarExcel()">Exportar</button>
         </div>
       </div>
-      <div id="alerts-container"></div>
       <div id="resumen" class="sec active"></div>
       <div id="ingreso" class="sec"></div>
       <div id="proceso" class="sec"></div>
-      <div id="stock" class="sec"></div>
+      <div id="stock" class="sec"><div id="alerts-container"></div></div>
       <div id="ventas" class="sec"></div>
       <div id="balance" class="sec"></div>
       <div id="config" class="sec"></div>
