@@ -2061,13 +2061,13 @@ function confirmarImport(){
   matcheados.forEach(({prod,cant})=>{
     if(prod.ventaDirecta){
       const descuento=parseFloat((prod.cantVentaDirecta*cant).toFixed(3));
-      setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
+      setSS(prod.substock, getSS(prod.substock)-descuento);
       DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
         sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
         importado:true,batch_id:batchId,id:batchId+Math.random()});
     } else {
       const sp=getPT(prod.ptKey);
-      setPT(prod.ptKey,Math.max(0,getPT(prod.ptKey)-cant));
+      setPT(prod.ptKey, getPT(prod.ptKey)-cant);
       const sa=getPT(prod.ptKey);
       DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
         sp,sa,importado:true,batch_id:batchId,id:batchId+Math.random()});
@@ -2116,7 +2116,7 @@ function addVenta(){
     const cant=parseFloat((p.cantVentaDirecta*uni).toFixed(3));
     const stockActual=getSS(p.substock);
     if(stockActual<cant){if(!confirm(`Stock insuficiente en "${ssDef?.label}": ${fmt(stockActual,2)} kg disponibles. ¿Continuás?`))return;}
-    setSS(p.substock,Math.max(0,stockActual-cant));
+    setSS(p.substock, stockActual-cant);
     DB.ventas.push({fecha,producto:pN,unidades:uni,usuario:CU.nombre,sp:null,sa:null,ventaDirecta:true,substock:p.substock,cantDescuentoSS:cant,id:Date.now()});
   } else {
     const sp=p?getPT(p.ptKey):null;
