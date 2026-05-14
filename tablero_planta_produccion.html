@@ -1799,9 +1799,11 @@ function renderVentasHistorial(){
         const g = vistoSingle.get(key);
         g.totalU += v.unidades;
         g.indices.push(v._idx);
+        if(v.batch_id && !g.batch_id) g.batch_id = v.batch_id;
       } else {
         const g = {tipo:'single-group', key, fecha:v.fecha, producto:v.producto,
-                   usuario:v.usuario, totalU:v.unidades, indices:[v._idx]};
+                   usuario:v.usuario, totalU:v.unidades, indices:[v._idx],
+                   batch_id:v.batch_id||null};
         vistoSingle.set(key, g);
         grupos.push(g);
       }
@@ -1818,7 +1820,7 @@ function renderVentasHistorial(){
           <span style="font-size:12px;color:#aaa">${g.fecha}</span>
           <span style="font-weight:500;flex:1">${g.producto}</span>
           <span style="font-size:12px;color:#666;margin-right:8px">${g.totalU} u.</span>
-          ${canDel?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" data-fecha="${g.fecha}" data-prod="${g.producto}" onclick="delVentasPorFechaProd(this.dataset.fecha,this.dataset.prod)">Borrar grupo</button>`:''}
+          ${canDel?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" data-fecha="${g.fecha}" data-prod="${g.producto}" data-batch="${g.batch_id||''}" onclick="g_borrarGrupo(this)">Borrar grupo</button>`:''}
         </div>
       </div>`;
     }
@@ -1846,6 +1848,14 @@ function renderVentasHistorial(){
       </div>
     </div>`;
   }).join('');
+}
+
+function g_borrarGrupo(btn){
+  const fecha = btn.dataset.fecha;
+  const prod = btn.dataset.prod;
+  const bid = parseInt(btn.dataset.batch);
+  if(bid) delVentaBatch(bid);
+  else delVentasPorFechaProd(fecha, prod);
 }
 
 function delVentasPorFechaProd(fecha, producto){
