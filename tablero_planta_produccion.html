@@ -1822,9 +1822,21 @@ async function importarPedidos(){
 
   function tieneFechaCorrecta(rows, fechaFiltro){
     // La columna A debe contener la fecha ingresada (ej: "12-5") en alguna fila
+    // Buscar en .v, .f, y también en formato "d-m" normalizado
+    const [d, m] = fechaFiltro.split('-').map(Number);
+    const variantes = new Set([
+      fechaFiltro,
+      `${d}-${m}`,
+      `${String(d).padStart(2,'0')}-${m}`,
+      `${d}-${String(m).padStart(2,'0')}`,
+      `${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`,
+    ]);
     return rows.some(row=>{
-      const val = (row.c?.[0]?.f ?? row.c?.[0]?.v)?.toString().trim();
-      return val === fechaFiltro;
+      const c = row.c?.[0];
+      if(!c) return false;
+      const v = c.v?.toString().trim();
+      const f = c.f?.toString().trim();
+      return variantes.has(v) || variantes.has(f);
     });
   }
 
