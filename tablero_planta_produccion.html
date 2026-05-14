@@ -1821,23 +1821,15 @@ async function importarPedidos(){
   }
 
   function tieneFechaCorrecta(rows, fechaFiltro){
-    // Buscar la fecha en cualquier celda de cualquier fila
-    const [d, m] = fechaFiltro.split('-').map(Number);
-    const variantes = new Set([
-      fechaFiltro,
-      `${d}-${m}`,
-      `${String(d).padStart(2,'0')}-${m}`,
-      `${d}-${String(m).padStart(2,'0')}`,
-      `${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`,
-    ]);
+    // En pestañas nuevas la fecha no aparece en las celdas, solo en el nombre.
+    // Verificar que hay filas con datos reales (producto en col A o D)
     return rows.some(row=>{
       if(!row.c) return false;
-      return row.c.some(c=>{
-        if(!c) return false;
-        const v = c.v?.toString().trim();
-        const f = c.f?.toString().trim();
-        return variantes.has(v) || variantes.has(f);
-      });
+      const colA = (row.c[0]?.f ?? row.c[0]?.v)?.toString().trim()||'';
+      const colD = (row.c[3]?.f ?? row.c[3]?.v)?.toString().trim()||'';
+      const tieneProducto = (colA.length > 5 && isNaN(Number(colA))) ||
+                            (colD.length > 5 && isNaN(Number(colD)));
+      return tieneProducto;
     });
   }
 
@@ -1863,32 +1855,41 @@ async function importarPedidos(){
     const json = JSON.parse(rawText.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
-    // Detectar si el producto está en columna A (índice 0) o columna D (índice 3)
-    // En pestañas nuevas (mayo+): producto en col A, cantidad en col E (índice 4)
-    // Verificar mirando si fila con datos tiene texto largo en col A o col D
+    // Detectar estructura: producto en col A o D, cantidad en la última col con número
+    // Formato abril: col D=producto, col E=cantidad
+    // Formato mayo+: col A=producto, última columna=cantidad del pedido
     let colProd = 3, colCant = 4;
     const filasMuestra = rows.filter(r=>r.c&&r.c.some(c=>c));
     for(const row of filasMuestra){
       const colA = (row.c?.[0]?.f ?? row.c?.[0]?.v)?.toString().trim()||'';
-      const colD = (row.c?.[3]?.f ?? row.c?.[3]?.v)?.toString().trim()||'';
-      if(colA.length > 10 && isNaN(Number(colA)) && !['base','producto','cliente'].includes(colA.toLowerCase())){
-        colProd = 0; colCant = 4; break;
-      }
-      if(colD.length > 10 && isNaN(Number(colD)) && !['base','producto'].includes(colD.toLowerCase())){
-        colProd = 3; colCant = 4; break;
+      if(colA.length > 5 && isNaN(Number(colA)) &&
+         !['base','producto','cliente','ur','concatenar'].includes(colA.toLowerCase())){
+        // Formato mayo: producto en A, cantidad en la última celda no-nula
+        colProd = 0;
+        // Buscar la última columna con número en esta fila
+        let lastNumCol = 4;
+        for(let i=(row.c.length-1);i>0;i--){
+          const v = row.c[i]?.v;
+          if(v!==null && v!==undefined && !isNaN(Number(v)) && Number(v)>=0){
+            lastNumCol = i; break;
+          }
+        }
+        colCant = lastNumCol;
+        break;
       }
     }
 
+    const ignorar = new Set(['base','producto','total','cantidad','cliente','ur','concatenar','categoria']);
     const filas = [];
     rows.forEach(row=>{
-      if(!row.c || row.c.length < colCant+1) return;
+      if(!row.c) return;
       const cProd = row.c[colProd];
       const cCant = row.c[colCant];
       if(!cProd || !cCant) return;
       const prod = (cProd.f ?? cProd.v)?.toString().trim();
       const cant = parseInt(cCant.v ?? cCant.f)||0;
       if(!prod || prod.length < 3 || cant <= 0) return;
-      if(['base','producto','total','cantidad','cliente','ur'].includes(prod.toLowerCase())) return;
+      if(ignorar.has(prod.toLowerCase())) return;
       filas.push({prod, cant});
     });
 
