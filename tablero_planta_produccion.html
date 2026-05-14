@@ -1802,18 +1802,27 @@ async function importarPedidos(){
   prev.innerHTML=`<div style="color:#888;font-size:12px;padding:8px 0">Leyendo planilla...</div>`;
 
   // Buscar la pestaña que corresponde a esa fecha
-  // Probar con espacio simple y doble para compatibilidad
-  const sheetNames = [`pedidos  ${fechaFiltro}`, `pedidos ${fechaFiltro}`];
-  let rawText = null, sheetName = sheetNames[0];
-  for(const sn of sheetNames){
+  // Generar todas las variantes posibles del nombre de pestaña
+  // Ejemplo: "12-5" → ["pedidos  12-5", "pedidos 12-5", "pedidos  12-05", ...]
+  const [diaStr, mesStr] = fechaFiltro.split('-');
+  const dia = parseInt(diaStr), mes = parseInt(mesStr);
+  const variantes = new Set();
+  for(const d of [diaStr, String(dia).padStart(2,'0')]){
+    for(const m of [mesStr, String(mes).padStart(2,'0')]){
+      variantes.add(`pedidos  ${d}-${m}`);  // doble espacio (formato real)
+      variantes.add(`pedidos ${d}-${m}`);   // espacio simple (fallback)
+    }
+  }
+  let rawText = null, sheetName = null;
+  for(const sn of variantes){
     try{
       const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sn)}`);
       const t = await r.text();
-      if(t.includes('table') && t.length > 100){ rawText = t; sheetName = sn; break; }
+      if(t.includes('"table"') && !t.includes('"errors"') && t.length > 200){ rawText = t; sheetName = sn; break; }
     }catch(e){ continue; }
   }
   if(!rawText){
-    prev.innerHTML=`<div class="alert-row">No se encontró la pestaña "pedidos  ${fechaFiltro}" ni "pedidos ${fechaFiltro}". Verificá que exista y que la planilla sea pública.</div>`;
+    prev.innerHTML=`<div class="alert-row">No se encontró ninguna pestaña para "${fechaFiltro}". Verificá que exista en la planilla y que sea pública.</div>`;
     return;
   }
   try{
