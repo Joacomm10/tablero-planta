@@ -1821,8 +1821,7 @@ async function importarPedidos(){
   }
 
   function tieneFechaCorrecta(rows, fechaFiltro){
-    // La columna A debe contener la fecha ingresada (ej: "12-5") en alguna fila
-    // Buscar en .v, .f, y también en formato "d-m" normalizado
+    // Buscar la fecha en cualquier celda de cualquier fila
     const [d, m] = fechaFiltro.split('-').map(Number);
     const variantes = new Set([
       fechaFiltro,
@@ -1832,11 +1831,13 @@ async function importarPedidos(){
       `${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`,
     ]);
     return rows.some(row=>{
-      const c = row.c?.[0];
-      if(!c) return false;
-      const v = c.v?.toString().trim();
-      const f = c.f?.toString().trim();
-      return variantes.has(v) || variantes.has(f);
+      if(!row.c) return false;
+      return row.c.some(c=>{
+        if(!c) return false;
+        const v = c.v?.toString().trim();
+        const f = c.f?.toString().trim();
+        return variantes.has(v) || variantes.has(f);
+      });
     });
   }
 
@@ -1862,22 +1863,32 @@ async function importarPedidos(){
     const json = JSON.parse(rawText.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
-    // Columnas fijas: D=índice 3 (producto), E=índice 4 (cantidad)
-    // Google Sheets con dropdown devuelve el texto en .f y el índice en .v
+    // Detectar si el producto está en columna A (índice 0) o columna D (índice 3)
+    // En pestañas nuevas (mayo+): producto en col A, cantidad en col E (índice 4)
+    // Verificar mirando si fila con datos tiene texto largo en col A o col D
+    let colProd = 3, colCant = 4;
+    const filasMuestra = rows.filter(r=>r.c&&r.c.some(c=>c));
+    for(const row of filasMuestra){
+      const colA = (row.c?.[0]?.f ?? row.c?.[0]?.v)?.toString().trim()||'';
+      const colD = (row.c?.[3]?.f ?? row.c?.[3]?.v)?.toString().trim()||'';
+      if(colA.length > 10 && isNaN(Number(colA)) && !['base','producto','cliente'].includes(colA.toLowerCase())){
+        colProd = 0; colCant = 4; break;
+      }
+      if(colD.length > 10 && isNaN(Number(colD)) && !['base','producto'].includes(colD.toLowerCase())){
+        colProd = 3; colCant = 4; break;
+      }
+    }
+
     const filas = [];
     rows.forEach(row=>{
-      if(!row.c || row.c.length < 5) return;
-      const cProd = row.c[3];
-      const cCant = row.c[4];
+      if(!row.c || row.c.length < colCant+1) return;
+      const cProd = row.c[colProd];
+      const cCant = row.c[colCant];
       if(!cProd || !cCant) return;
-      // Para dropdowns: .f tiene el texto visible, .v tiene el índice numérico
       const prod = (cProd.f ?? cProd.v)?.toString().trim();
-      // Para cantidades: .v es el número, .f es el string formateado
-      const cantRaw = cCant.v ?? cCant.f;
-      const cant = parseInt(cantRaw)||0;
+      const cant = parseInt(cCant.v ?? cCant.f)||0;
       if(!prod || prod.length < 3 || cant <= 0) return;
-      // Ignorar filas de encabezado o totales (prod es "BASE", "PRODUCTO", etc.)
-      if(['base','producto','total','cantidad'].includes(prod.toLowerCase())) return;
+      if(['base','producto','total','cantidad','cliente','ur'].includes(prod.toLowerCase())) return;
       filas.push({prod, cant});
     });
 
