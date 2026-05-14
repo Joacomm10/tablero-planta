@@ -1697,6 +1697,33 @@ function delProceso(i){
 // ============================================================
 // STOCK
 // ============================================================
+function renderVentaDirectaStock(prodsProt){
+  const vd = prodsProt.filter(p=>p.ventaDirecta);
+  if(!vd.length) return '';
+  // Agrupar por sub-stock compartido
+  const grupos = {};
+  vd.forEach(p=>{
+    if(!grupos[p.substock]) grupos[p.substock]={substock:p.substock, prods:[]};
+    grupos[p.substock].prods.push(p);
+  });
+  let html = '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin:10px 0 6px">Venta directa</div>';
+  Object.values(grupos).forEach(g=>{
+    const kg = getSS(g.substock);
+    const ssDef = findSSdef(g.substock);
+    const low = kg <= 0.5 && kg > 0;
+    const zero = kg <= 0;
+    html += '<div class="substk '+(low?'substk-low':'')+(zero?' substk-zero':'')+'">'+
+      '<div style="flex:1">'+
+        '<span style="font-size:12px;'+(zero?'color:#a32d2d':low?'color:#854f0b':'')+'">'+(zero?'⚠ ':'')+
+          (ssDef?ssDef.label:g.substock)+'</span>'+
+        '<div style="font-size:10px;color:#888;margin-top:2px">'+g.prods.map(p=>p.nombre).join(' · ')+'</div>'+
+      '</div>'+
+      '<span style="font-size:12px;font-weight:500;color:'+(zero?'#a32d2d':low?'#854f0b':'#333')+'">'+fmt(kg,2)+' kg</span>'+
+    '</div>';
+  });
+  return html;
+}
+
 function renderStock(){
   checkAlertas();
   const el=document.getElementById('stock');
@@ -1736,6 +1763,7 @@ function renderStock(){
               </div>
             </div>`;
           }).join('')}
+          \${renderVentaDirectaStock(prodsProt)}
         </div>
       </div>
     </div>`;
