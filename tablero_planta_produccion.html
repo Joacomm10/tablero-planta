@@ -1812,38 +1812,22 @@ async function importarPedidos(){
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
-    // DEBUG: mostrar estructura de primeras filas para diagnosticar
-    const debugInfo = rows.slice(0,5).map((row,i)=>{
-      if(!row.c) return `fila ${i}: sin celdas`;
-      return `fila ${i}: `+row.c.slice(0,6).map((c,j)=>c?`[${j}]v=${JSON.stringify(c.v)} f=${JSON.stringify(c.f)}`:`[${j}]null`).join(' | ');
-    }).join('\n');
-    console.log('DEBUG planilla:', debugInfo);
-
-    // Detectar automáticamente columnas de producto y cantidad
-    // buscando la fila 0 (encabezado) o la primera fila con datos
-    let colProd = 3, colCant = 4; // defaults
-    if(rows.length>0 && rows[0].c){
-      rows[0].c.forEach((c,i)=>{
-        const val=(c?.f??c?.v)?.toString().toLowerCase()||'';
-        if(val.includes('base')||val.includes('producto')) colProd=i;
-        if(val.includes('cant')||val.includes('cantidad')) colCant=i;
-      });
-    }
-    console.log('Columnas detectadas: prod='+colProd+' cant='+colCant);
-
-    // Procesar filas individualmente
+    // Columnas fijas: D=índice 3 (producto), E=índice 4 (cantidad)
+    // Google Sheets con dropdown devuelve el texto en .f y el índice en .v
     const filas = [];
-    rows.forEach((row,ri)=>{
-      if(!row.c) return;
-      const cProd = row.c[colProd];
-      const cCant = row.c[colCant];
-      if(!cProd||!cCant) return;
-      // Usar .f (formatted) primero para celdas con dropdown
+    rows.forEach(row=>{
+      if(!row.c || row.c.length < 5) return;
+      const cProd = row.c[3];
+      const cCant = row.c[4];
+      if(!cProd || !cCant) return;
+      // Para dropdowns: .f tiene el texto visible, .v tiene el índice numérico
       const prod = (cProd.f ?? cProd.v)?.toString().trim();
-      const cant = parseInt(cCant.v ?? cCant.f)||0;
-      if(!prod||cant<=0) return;
-      // Ignorar si prod parece un número (fila de total/índice)
-      if(/^\d+$/.test(prod)) return;
+      // Para cantidades: .v es el número, .f es el string formateado
+      const cantRaw = cCant.v ?? cCant.f;
+      const cant = parseInt(cantRaw)||0;
+      if(!prod || prod.length < 3 || cant <= 0) return;
+      // Ignorar filas de encabezado o totales (prod es "BASE", "PRODUCTO", etc.)
+      if(['base','producto','total','cantidad'].includes(prod.toLowerCase())) return;
       filas.push({prod, cant});
     });
 
