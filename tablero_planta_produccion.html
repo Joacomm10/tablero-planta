@@ -1802,33 +1802,52 @@ async function importarPedidos(){
   prev.innerHTML=`<div style="color:#888;font-size:12px;padding:8px 0">Leyendo planilla...</div>`;
 
   // Buscar la pestaña que corresponde a esa fecha
-  // Generar todas las variantes posibles del nombre de pestaña
-  // Ejemplo: "12-5" → ["pedidos  12-5", "pedidos 12-5", "pedidos  12-05", ...]
+  // Generar variantes del nombre de pestaña (espacio simple y doble)
   const [diaStr, mesStr] = fechaFiltro.split('-');
   const dia = parseInt(diaStr), mes = parseInt(mesStr);
-  const variantes = new Set();
+  const variantes = [];
   for(const d of [diaStr, String(dia).padStart(2,'0')]){
     for(const m of [mesStr, String(mes).padStart(2,'0')]){
-      variantes.add(`pedidos ${d}-${m}`);   // espacio simple (mayo en adelante)
-      variantes.add(`pedidos  ${d}-${m}`);  // doble espacio (abril y anteriores)
+      variantes.push(`pedidos ${d}-${m}`);
+      variantes.push(`pedidos  ${d}-${m}`);
     }
   }
+
+  function parsearPlanilla(t){
+    try{
+      const json = JSON.parse(t.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+      return json.table?.rows || [];
+    }catch(e){ return []; }
+  }
+
+  function tieneFechaCorrecta(rows, fechaFiltro){
+    // La columna A debe contener la fecha ingresada (ej: "12-5") en alguna fila
+    return rows.some(row=>{
+      const val = (row.c?.[0]?.f ?? row.c?.[0]?.v)?.toString().trim();
+      return val === fechaFiltro;
+    });
+  }
+
   let rawText = null, sheetName = null;
   for(const sn of variantes){
     try{
       const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sn)}`);
       const t = await r.text();
-      if(t.includes('"table"') && !t.includes('"errors"') && t.length > 200){ rawText = t; sheetName = sn; break; }
+      if(!t.includes('"table"')) continue;
+      const rows = parsearPlanilla(t);
+      // Verificar que la pestaña tiene filas con la fecha correcta en columna A
+      if(rows.length > 0 && tieneFechaCorrecta(rows, fechaFiltro)){
+        rawText = t; sheetName = sn; break;
+      }
     }catch(e){ continue; }
   }
   if(!rawText){
-    prev.innerHTML=`<div class="alert-row">No se encontró ninguna pestaña para "${fechaFiltro}". Verificá que exista en la planilla y que sea pública.</div>`;
+    prev.innerHTML=`<div class="alert-row">No se encontró la pestaña para "${fechaFiltro}". Verificá que exista en la planilla y que sea pública.</div>`;
     return;
   }
   try{
-    const text = rawText;
     // Google devuelve JSONP, hay que extraer el JSON
-    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const json = JSON.parse(rawText.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
     const rows = json.table.rows;
 
     // Columnas fijas: D=índice 3 (producto), E=índice 4 (cantidad)
