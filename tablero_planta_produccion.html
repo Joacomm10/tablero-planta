@@ -1809,8 +1809,8 @@ async function importarPedidos(){
   const variantes = new Set();
   for(const d of [diaStr, String(dia).padStart(2,'0')]){
     for(const m of [mesStr, String(mes).padStart(2,'0')]){
-      variantes.add(`pedidos  ${d}-${m}`);  // doble espacio (formato real)
-      variantes.add(`pedidos ${d}-${m}`);   // espacio simple (fallback)
+      variantes.add(`pedidos ${d}-${m}`);   // espacio simple (mayo en adelante)
+      variantes.add(`pedidos  ${d}-${m}`);  // doble espacio (abril y anteriores)
     }
   }
   let rawText = null, sheetName = null;
