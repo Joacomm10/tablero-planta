@@ -1747,6 +1747,88 @@ function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB()
 // ============================================================
 // VENTAS
 // ============================================================
+function renderVentasHistorial(){
+  if(DB.ventas.length===0) return '<p style="color:#888;text-align:center;padding:1rem">Sin ventas registradas</p>';
+
+  // Agrupar por batch_id; ventas sin batch_id van individualmente
+  const grupos = [];
+  const vistoBatch = new Set();
+  DB.ventas.slice().reverse().forEach((v, ri)=>{
+    const idx = DB.ventas.length - 1 - ri;
+    if(v.batch_id){
+      if(vistoBatch.has(v.batch_id)) return;
+      vistoBatch.add(v.batch_id);
+      const items = DB.ventas.map((vv,ii)=>({...vv,_idx:ii})).filter(vv=>vv.batch_id===v.batch_id);
+      const totalU = items.reduce((s,vv)=>s+vv.unidades,0);
+      grupos.push({tipo:'batch', batch_id:v.batch_id, fecha:v.fecha, usuario:v.usuario, items, totalU});
+    } else {
+      grupos.push({tipo:'single', v, idx});
+    }
+  });
+
+  return grupos.map(g=>{
+    if(g.tipo==='single'){
+      const p=DB.productos.find(pp=>pp.nombre===g.v.producto);
+      const kgTeo=p?calcKgMPTeorico(p):null;
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fafafa">
+          <span style="font-size:12px;color:#888">${g.v.fecha}</span>
+          <span style="font-weight:500;flex:1">${g.v.producto}</span>
+          <span style="font-size:12px;color:#666">${g.v.unidades} u.</span>
+          ${CU.role==='gerente'?`<button class="btn-sm" onclick="delVenta(${g.idx})">x</button>`:''}
+        </div>
+      </div>`;
+    }
+    // Grupo batch
+    const bid = g.batch_id;
+    return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f0f4ff;cursor:pointer"
+           onclick="toggleBatch(${bid})">
+        <span style="font-size:18px" id="batch-arrow-${bid}">▶</span>
+        <span style="font-size:12px;color:#888">${g.fecha}</span>
+        <span style="font-weight:600;flex:1">Importación — ${g.items.length} productos · ${g.totalU} u. totales</span>
+        <span style="font-size:11px;color:#888">${g.usuario||''}</span>
+        ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5"
+          onclick="event.stopPropagation();delVentaBatch(${bid})">Borrar todo</button>`:''}
+      </div>
+      <div id="batch-detail-${bid}" style="display:none;padding:8px 14px">
+        <table style="width:100%;font-size:12px">
+          <thead><tr><th style="text-align:left">Producto</th><th>Unid.</th><th></th></tr></thead>
+          <tbody>${g.items.map(vv=>`<tr>
+            <td>${vv.producto}</td>
+            <td style="text-align:center">${vv.unidades}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delVenta(${vv._idx})">x</button>`:''}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBatch(bid){
+  const det=document.getElementById('batch-detail-'+bid);
+  const arr=document.getElementById('batch-arrow-'+bid);
+  if(!det) return;
+  const open=det.style.display==='block';
+  det.style.display=open?'none':'block';
+  arr.textContent=open?'▶':'▼';
+}
+
+function delVentaBatch(batchId){
+  if(!confirm('¿Borrar todas las ventas de esta importación?')) return;
+  // Revertir stock de cada venta del batch
+  DB.ventas.filter(v=>v.batch_id===batchId).forEach(v=>{
+    const p=DB.productos.find(pp=>pp.nombre===v.producto);
+    if(v.ventaDirecta && v.substock){
+      setSS(v.substock, getSS(v.substock)+(v.cantDescuentoSS||0));
+    } else if(p){
+      setPT(p.ptKey, getPT(p.ptKey)+v.unidades);
+    }
+  });
+  DB.ventas=DB.ventas.filter(v=>v.batch_id!==batchId);
+  saveDB(); renderVentas(); checkAlertas();
+}
+
 function renderVentas(){
   const el=document.getElementById('ventas');
   const opts=DB.productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');
@@ -1776,18 +1858,7 @@ function renderVentas(){
   </div>
   <div class="card">
     <div class="ctitle">Ventas registradas</div>
-    <div style="overflow-x:auto"><table>
-      <thead><tr><th>Fecha</th><th>Producto</th><th>Proteína</th><th>Unid.</th><th>kg MP teo/u</th><th>Stock prev.</th><th>Stock act.</th><th>Usuario</th><th></th></tr></thead>
-      <tbody>${DB.ventas.length===0?'<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin ventas</td></tr>':
-      DB.ventas.slice().reverse().map((v,i)=>{const idx=DB.ventas.length-1-i;
-        const p=DB.productos.find(pp=>pp.nombre===v.producto);
-        const kgTeo=p?calcKgMPTeorico(p):null;
-        return `<tr><td>${v.fecha}</td><td>${v.producto}</td><td>${p?p.proteina:'-'}</td><td>${v.unidades}</td>
-          <td style="color:#888">${kgTeo?fmt(kgTeo,3)+' kg':'-'}</td>
-          <td>${v.sp??'-'}</td><td>${v.sa??'-'}</td><td style="color:#888">${v.usuario||'-'}</td>
-          <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delVenta(${idx})">x</button>`:''}</td></tr>`;
-      }).join('')}</tbody>
-    </table></div>
+    <div id="ventas-historial">${renderVentasHistorial()}</div>
   </div>`;
   updateVentaInfo();
 }
@@ -1960,25 +2031,23 @@ async function importarPedidos(){
 function confirmarImport(){
   const {matcheados, fechaReg} = window._importData||{};
   if(!matcheados||matcheados.length===0) return;
+  const batchId = Date.now(); // ID compartido para toda esta importación
   let registradas=0;
   matcheados.forEach(({prod,cant})=>{
-    // Registrar UNA entrada por unidad para poder borrar individualmente
-    for(let i=0;i<cant;i++){
-      if(prod.ventaDirecta){
-        const descuento=parseFloat((prod.cantVentaDirecta).toFixed(3));
-        setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
-        DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:1,usuario:CU.nombre,
-          sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
-          importado:true,id:Date.now()+Math.random()});
-      } else {
-        const sp=getPT(prod.ptKey);
-        setPT(prod.ptKey,Math.max(0,getPT(prod.ptKey)-1));
-        const sa=getPT(prod.ptKey);
-        DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:1,usuario:CU.nombre,
-          sp,sa,importado:true,id:Date.now()+Math.random()});
-      }
-      registradas++;
+    if(prod.ventaDirecta){
+      const descuento=parseFloat((prod.cantVentaDirecta*cant).toFixed(3));
+      setSS(prod.substock,Math.max(0,getSS(prod.substock)-descuento));
+      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
+        sp:null,sa:null,ventaDirecta:true,substock:prod.substock,cantDescuentoSS:descuento,
+        importado:true,batch_id:batchId,id:batchId+Math.random()});
+    } else {
+      const sp=getPT(prod.ptKey);
+      setPT(prod.ptKey,Math.max(0,getPT(prod.ptKey)-cant));
+      const sa=getPT(prod.ptKey);
+      DB.ventas.push({fecha:fechaReg,producto:prod.nombre,unidades:cant,usuario:CU.nombre,
+        sp,sa,importado:true,batch_id:batchId,id:batchId+Math.random()});
     }
+    registradas+=cant;
   });
   saveDB();
   window._importData=null;
