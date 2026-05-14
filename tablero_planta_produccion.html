@@ -1750,11 +1750,12 @@ function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB()
 function renderVentasHistorial(){
   if(DB.ventas.length===0) return '<p style="color:#888;text-align:center;padding:1rem">Sin ventas registradas</p>';
 
-  // Agrupar por batch_id; ventas sin batch_id van individualmente
+  // Agrupar por batch_id; ventas sin batch_id se agrupan por fecha+producto
   const grupos = [];
   const vistoBatch = new Set();
-  DB.ventas.slice().reverse().forEach((v, ri)=>{
-    const idx = DB.ventas.length - 1 - ri;
+  const vistoSingle = new Map(); // "fecha|producto" -> grupo
+
+  DB.ventas.map((v,i)=>({...v,_idx:i})).reverse().forEach(v=>{
     if(v.batch_id){
       if(vistoBatch.has(v.batch_id)) return;
       vistoBatch.add(v.batch_id);
@@ -1762,20 +1763,32 @@ function renderVentasHistorial(){
       const totalU = items.reduce((s,vv)=>s+vv.unidades,0);
       grupos.push({tipo:'batch', batch_id:v.batch_id, fecha:v.fecha, usuario:v.usuario, items, totalU});
     } else {
-      grupos.push({tipo:'single', v, idx});
+      // Agrupar ventas sin batch_id por fecha+producto
+      const key = v.fecha+'|'+v.producto;
+      if(vistoSingle.has(key)){
+        const g = vistoSingle.get(key);
+        g.totalU += v.unidades;
+        g.indices.push(v._idx);
+      } else {
+        const g = {tipo:'single-group', key, fecha:v.fecha, producto:v.producto,
+                   usuario:v.usuario, totalU:v.unidades, indices:[v._idx]};
+        vistoSingle.set(key, g);
+        grupos.push(g);
+      }
     }
   });
 
   return grupos.map(g=>{
-    if(g.tipo==='single'){
-      const p=DB.productos.find(pp=>pp.nombre===g.v.producto);
-      const kgTeo=p?calcKgMPTeorico(p):null;
-      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fafafa">
-          <span style="font-size:12px;color:#888">${g.v.fecha}</span>
-          <span style="font-weight:500;flex:1">${g.v.producto}</span>
-          <span style="font-size:12px;color:#666">${g.v.unidades} u.</span>
-          ${CU.role==='gerente'?`<button class="btn-sm" onclick="delVenta(${g.idx})">x</button>`:''}
+    if(g.tipo==='single-group'){
+      // Ventas viejas sin batch_id agrupadas por fecha+producto
+      const canDel = CU.role==='gerente';
+      const delBtns = canDel ? g.indices.map(idx=>`<button class="btn-sm" onclick="delVenta(${idx});renderVentas()">x</button>`).join(' ') : '';
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;background:#fafafa">
+          <span style="font-size:12px;color:#aaa">${g.fecha}</span>
+          <span style="font-weight:500;flex:1">${g.producto}</span>
+          <span style="font-size:12px;color:#666;margin-right:8px">${g.totalU} u.</span>
+          ${canDel?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" data-fecha="${g.fecha}" data-prod="${g.producto}" onclick="delVentasPorFechaProd(this.dataset.fecha,this.dataset.prod)">Borrar grupo</button>`:''}
         </div>
       </div>`;
     }
@@ -1803,6 +1816,18 @@ function renderVentasHistorial(){
       </div>
     </div>`;
   }).join('');
+}
+
+function delVentasPorFechaProd(fecha, producto){
+  if(!confirm(`¿Borrar todas las ventas de "${producto}" del ${fecha}?`)) return;
+  const aEliminar = DB.ventas.filter(v=>v.fecha===fecha && v.producto===producto && !v.batch_id);
+  aEliminar.forEach(v=>{
+    const p = DB.productos.find(pp=>pp.nombre===v.producto);
+    if(v.ventaDirecta && v.substock) setSS(v.substock, getSS(v.substock)+(v.cantDescuentoSS||0));
+    else if(p) setPT(p.ptKey, getPT(p.ptKey)+v.unidades);
+  });
+  DB.ventas = DB.ventas.filter(v=>!(v.fecha===fecha && v.producto===producto && !v.batch_id));
+  saveDB(); renderVentas(); checkAlertas();
 }
 
 function toggleBatch(bid){
