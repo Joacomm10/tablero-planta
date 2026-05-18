@@ -96,6 +96,9 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 .panel-body{padding:18px;flex:1}
 .panel-close{width:28px;height:28px;border-radius:50%;border:1px solid #e5e5e0;background:#f0efe8;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#666}
 .panel-close:hover{background:#e5e5e0}
+.combo-wrap{position:relative;width:100%}
+.combo-input{padding:7px 9px;font-size:12px;border-radius:8px;border:1px solid #d5d5d0;background:#fff;color:#1a1a1a;width:100%}
+.combo-input:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px rgba(55,138,221,0.1)}
 .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f8f8f5;font-size:12px}
 .det-row:last-child{border-bottom:none}
 .det-label{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
@@ -421,7 +424,69 @@ let activeModo='limpieza';
 // HELPERS
 // ============================================================
 function today(){return new Date().toISOString().slice(0,10);}
+
+// Combo predictivo: reemplaza un <select id=ID> por input+datalist
+// Uso: makeCombo('id', [{value, label}], valorActual, onchangeFn)
+function makeCombo(id, opciones, valorActual, onchangeFn){
+  const wrap = document.createElement('div');
+  wrap.className = 'combo-wrap';
+  const listId = id+'-list';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'combo-input';
+  input.id = id;
+  input.setAttribute('list', listId);
+  input.setAttribute('autocomplete', 'off');
+  // Mostrar el label del valor actual
+  const found = opciones.find(o=>o.value===valorActual);
+  input.value = found ? found.label : (valorActual||'');
+  if(onchangeFn) input.addEventListener('input', ()=>{
+    // Resolver value real desde el label escrito
+    const match = opciones.find(o=>o.label===input.value||o.value===input.value);
+    if(match) input.dataset.value = match.value;
+    else input.dataset.value = '';
+    onchangeFn(input.dataset.value || input.value);
+  });
+  const dl = document.createElement('datalist');
+  dl.id = listId;
+  opciones.forEach(o=>{
+    const opt = document.createElement('option');
+    opt.value = o.label;
+    dl.appendChild(opt);
+  });
+  wrap.appendChild(input);
+  wrap.appendChild(dl);
+  return wrap;
+}
+
+// Helper para obtener el value de un combo (puede ser data-value o value directo)
+function getComboValue(id){
+  const el = document.getElementById(id);
+  if(!el) return '';
+  // Si tiene data-value seteado por el combo, usarlo
+  if(el.dataset.value !== undefined && el.dataset.value !== '') return el.dataset.value;
+  // Si es un select normal
+  if(el.tagName === 'SELECT') return el.value;
+  // Si es un input, intentar matchear con opciones del datalist
+  const listId = el.getAttribute('list');
+  if(listId){
+    const dl = document.getElementById(listId);
+    if(dl){
+      // Buscar option que coincida con el texto escrito
+      const opts = Array.from(dl.options);
+      // El input guarda el label, necesitamos el value original
+      // Para eso usamos el data-value que se setea en oninput
+      return el.dataset.value || el.value;
+    }
+  }
+  return el.value;
+}
 function fmt(n,d=2){return(isNaN(n)||n===null||n===undefined)?'0.00':parseFloat(n).toFixed(d);}
+function fmtFecha(f){
+  if(!f||typeof f!=='string')return f||'—';
+  const m=f.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m?m[3]+'/'+m[2]+'/'+m[1]:f;
+}
 function getSS(k){const v=DB.ss[k];return v===undefined||v===null?0:v;}
 function setSS(k,v){DB.ss[k]=parseFloat(v)||0;}
 function getPT(k){const v=DB.pt[k];return v===undefined||v===null?0:v;}
@@ -632,7 +697,7 @@ function abrirPanel(idx){
 
   document.getElementById('panel-body').innerHTML=`
     <div style="margin-bottom:16px">
-      <div class="det-row"><span class="det-label">Fecha</span><span class="det-val">${p.fecha}</span></div>
+      <div class="det-row"><span class="det-label">Fecha</span><span class="det-val">${fmtFecha(p.fecha)}</span></div>
       <div class="det-row"><span class="det-label">Responsable</span><span class="det-val">${p.responsable||'—'}</span></div>
       <div class="det-row"><span class="det-label">Registrado por</span><span class="det-val">${p.usuario||'—'}</span></div>
     </div>
@@ -760,11 +825,11 @@ function checkAlertas(){
     const teo=DB.teorico[p.proteina];if(!teo)return;
     if(p.tipo==='limpieza'&&p.kg_in>0){
       const r=p.kg_desperdicio/p.kg_in*100,t=teo.desp_limpieza_pct;
-      if(Math.abs(r-t)>8)alerts.push(`Desvío desperdicio ${p.proteina} (${p.fecha}): real ${r.toFixed(1)}% vs teórico ${t}%`);
+      if(Math.abs(r-t)>8)alerts.push(`Desvío desperdicio ${p.proteina} (${fmtFecha(p.fecha)}): real ${r.toFixed(1)}% vs teórico ${t}%`);
     }
     if(p.tipo==='coccion'&&p.kg_in>0&&teo.coccion_pct){
       const r=p.kg_out/p.kg_in*100,t=teo.coccion_pct;
-      if(Math.abs(r-t)>8)alerts.push(`Desvío cocción ${p.proteina} (${p.fecha}): real ${r.toFixed(1)}% vs teórico ${t}%`);
+      if(Math.abs(r-t)>8)alerts.push(`Desvío cocción ${p.proteina} (${fmtFecha(p.fecha)}): real ${r.toFixed(1)}% vs teórico ${t}%`);
     }
   });
   Object.values(DB.substocks).flat().forEach(s=>{
@@ -959,6 +1024,7 @@ function renderCalidad(){
   const pctCaidas=totalBajas>0?(totalCaidas/totalBajas*100):0;
   const pctDev=totalBajas>0?(totalDev/totalBajas*100):0;
   const prodOpts=DB.productos.map(p=>`<option value="${p.ptKey}">${p.nombre} (stock: ${getPT(p.ptKey)}u.)</option>`).join('');
+  const prodComboOpts=DB.productos.map(p=>`<option value="${p.ptKey}">`).join('');
 
   el.innerHTML=`
   <p class="sechead">Calidad y consumo interno</p>
@@ -1007,7 +1073,7 @@ function renderCalidad(){
           const idx=DB.calidad.length-1-i;
           const pc=r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):'0.0';
           const dc=parseFloat(pc)<=2?'bok':parseFloat(pc)<=5?'bwarn':'bdanger';
-          return `<tr><td>${r.fecha}</td><td>${r.pedidos}</td><td>${r.errores}</td>
+          return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.pedidos}</td><td>${r.errores}</td>
             <td><span class="badge ${dc}">${pc}%</span></td>
             <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
             <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCalidad(${idx})">x</button>`:''}</td></tr>`;
@@ -1034,7 +1100,7 @@ function renderCalidad(){
         <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Notas</th><th>Usuario</th><th></th></tr></thead>
         <tbody>${(DB.caidas||[]).slice().reverse().map((r,i)=>{
           const idx=(DB.caidas||[]).length-1-i;
-          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+          return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.producto}</td><td>${r.cantidad}</td>
             <td style="color:#888;font-size:11px">${r.notas||'-'}</td><td style="color:#888">${r.usuario||'-'}</td>
             <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delCaida(${idx})">x</button>`:''}</td></tr>`;
         }).join('')}</tbody>
@@ -1048,7 +1114,8 @@ function renderCalidad(){
       <div class="info-box">Descuenta automáticamente del stock de producto terminado. Las devoluciones se descartan.</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="dev-fecha" value="${today()}"></div>
-        <div class="fg"><label>Producto</label><select id="dev-prod">${prodOpts}</select></div>
+        <div class="fg"><label>Producto</label><input type="text" list="dev-prod-list" id="dev-prod" class="combo-input" autocomplete="off" placeholder="Escribí para filtrar...">
+        <datalist id="dev-prod-list">${prodComboOpts}</datalist></div>
         <div class="fg" style="max-width:100px"><label>Cantidad</label><input type="number" id="dev-cant" placeholder="0" min="1"></div>
         <div class="fg"><label>Notas</label><input type="text" id="dev-notas" placeholder="Opcional"></div>
       </div>
@@ -1060,7 +1127,7 @@ function renderCalidad(){
         <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Notas</th><th>Usuario</th><th></th></tr></thead>
         <tbody>${(DB.devoluciones||[]).slice().reverse().map((r,i)=>{
           const idx=(DB.devoluciones||[]).length-1-i;
-          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+          return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.producto}</td><td>${r.cantidad}</td>
             <td style="color:#888;font-size:11px">${r.notas||'-'}</td><td style="color:#888">${r.usuario||'-'}</td>
             <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delDevolucion(${idx})">x</button>`:''}</td></tr>`;
         }).join('')}</tbody>
@@ -1074,7 +1141,8 @@ function renderCalidad(){
       <div class="info-box">Productos consumidos por el personal o la gerencia. Descuenta del stock de PT.</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="ci-fecha" value="${today()}"></div>
-        <div class="fg"><label>Producto</label><select id="ci-prod">${prodOpts}</select></div>
+        <div class="fg"><label>Producto</label><input type="text" list="ci-prod-list" id="ci-prod" class="combo-input" autocomplete="off" placeholder="Escribí para filtrar...">
+        <datalist id="ci-prod-list">${prodComboOpts}</datalist></div>
         <div class="fg" style="max-width:100px"><label>Cantidad</label><input type="number" id="ci-cant" placeholder="0" min="1"></div>
         <div class="fg"><label>Quién consumió</label><input type="text" id="ci-quien" placeholder="Ej: Gerencia"></div>
         <div class="fg"><label>Notas</label><input type="text" id="ci-notas" placeholder="Opcional"></div>
@@ -1087,7 +1155,7 @@ function renderCalidad(){
         <thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Quién</th><th>Notas</th><th></th></tr></thead>
         <tbody>${(DB.consumoInterno||[]).slice().reverse().map((r,i)=>{
           const idx=(DB.consumoInterno||[]).length-1-i;
-          return `<tr><td>${r.fecha}</td><td>${r.producto}</td><td>${r.cantidad}</td>
+          return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.producto}</td><td>${r.cantidad}</td>
             <td style="color:#888">${r.quien||'-'}</td>
             <td style="color:#888;font-size:11px">${r.notas||'-'}</td>
             <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delConsumoInterno(${idx})">x</button>`:''}</td></tr>`;
@@ -1219,14 +1287,18 @@ function renderIngreso(){
   <div class="card">
     <div class="frow">
       <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="i-fecha" value="${today()}" oninput="actualizarLotePreview()"></div>
-      <div class="fg"><label>Proteína</label><select id="i-prot" onchange="actualizarLotePreview()">${prots.map(p=>`<option>${p}</option>`).join('')}</select></div>
+      <div class="fg"><label>Proteína</label>
+        <input type="text" list="i-prot-list" id="i-prot" class="combo-input" autocomplete="off"
+               oninput="actualizarLotePreview()" placeholder="Escribí para filtrar...">
+        <datalist id="i-prot-list">${prots.map(p=>`<option value="${p}">`).join('')}</datalist>
+      </div>
       <div class="fg" style="max-width:100px"><label>Kg bruto</label><input type="number" id="i-kg" placeholder="0.00" step="0.01"></div>
       <div class="fg" style="max-width:110px"><label>Costo $/kg</label><input type="number" id="i-costo" placeholder="0.00" step="0.01"></div>
       <div class="fg"><label>Proveedor</label>
-        <select id="i-prov">
-          <option value="">— Sin especificar —</option>
-          ${(DB.proveedores||[]).map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('')}
-        </select>
+        <input type="text" list="i-prov-list" id="i-prov" class="combo-input" autocomplete="off" placeholder="Escribí para filtrar...">
+        <datalist id="i-prov-list">
+          ${(DB.proveedores||[]).map(p=>`<option value="${p.nombre}">`).join('')}
+        </datalist>
       </div>
     </div>
     <div class="frow" style="align-items:center">
@@ -1243,7 +1315,7 @@ function renderIngreso(){
       <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Lote</th><th>Usuario</th><th></th></tr></thead>
       <tbody>${DB.ingresos.length===0?'<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':
       DB.ingresos.slice().reverse().map((r,i)=>{const idx=DB.ingresos.length-1-i;
-        return `<tr><td>${r.fecha}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td>
+        return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td>
         <td>${r.lote_id?`<span class="badge binfo">${r.lote_id}</span>`:'<span style="color:#ccc;font-size:11px">—</span>'}</td>
         <td style="color:#888">${r.usuario||'-'}</td>
         <td style="display:flex;gap:4px;align-items:center">
@@ -1314,7 +1386,7 @@ function renderProceso(){
       const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
       const loteBadge=p.lote_id?`<span class="badge binfo">${p.lote_id}</span>`:'';
       return `<tr class="proc-row" onclick="abrirPanel(${idx})">
-        <td>${p.fecha}</td>
+        <td>${fmtFecha(p.fecha)}</td>
         <td>${p.proteina}</td>
         <td><span class="badge ${tl}">${p.tipo}</span></td>
         <td>${fmt(p.kg_in,2)} → ${fmt(p.kg_out,2)} kg</td>
@@ -1364,10 +1436,11 @@ function renderProcesoForm(){
   const frm=document.getElementById('proceso-form');if(!frm)return;
   const teo=DB.teorico[activeProt];
   const subs=DB.substocks[activeProt]||[];
-  const empOpts = (DB.empleados||[]).length===0
-    ? '<option value="">Sin empleados cargados</option>'
-    : '<option value="">Seleccionar...</option>'+(DB.empleados||[]).map(e=>`<option value="${e}">${e}</option>`).join('');
-  const respField=`<div class="fg"><label>Responsable</label><select id="pf-resp">${empOpts}</select></div>`;
+  const empOpts = (DB.empleados||[]).map(e=>`<option value="${e}">`).join('');
+  const respField=`<div class="fg"><label>Responsable</label>
+    <input type="text" list="pf-resp-list" id="pf-resp" class="combo-input" autocomplete="off" placeholder="Nombre...">
+    <datalist id="pf-resp-list">${empOpts}</datalist>
+  </div>`;
 
   if(activeModo==='limpieza'){
     const mpSS=subs.find(s=>s.estado==='mp');
@@ -1464,10 +1537,12 @@ function renderProcesoForm(){
           <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${buildOrigenArmado(subs,prodsProt)}</select>
         </div>
         <div class="fg"><label>Producto a generar</label>
-          <select id="pf-producto" onchange="onProductoArmadoChange()">${prodsProt.map(p=>{
+          <input type="text" list="pf-producto-list" id="pf-producto" class="combo-input" autocomplete="off"
+                 oninput="onProductoArmadoChange()" placeholder="Escribí para filtrar...">
+          <datalist id="pf-producto-list">${prodsProt.map(p=>{
             const kgTeo=calcKgMPTeorico(p);
-            return `<option value="${p.ptKey}" data-substock="${p.substock}">${p.nombre} (porción: ${fmt(p.kgPorcion,3)} kg | MP teo: ${fmt(kgTeo,3)} kg)</option>`;
-          }).join('')}</select>
+            return `<option value="${p.ptKey}">${p.nombre} — ${fmt(p.kgPorcion,3)} kg porción</option>`;
+          }).join('')}</datalist>
         </div>
         <div class="fg" style="max-width:160px"><label>Lote</label>
           <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
@@ -1595,8 +1670,10 @@ function updateArmadoSalidaLabel(){
 function onProductoArmadoChange(){
   const sel=document.getElementById('pf-producto');
   if(!sel) return;
-  const opt=sel.options[sel.selectedIndex];
-  const substock=opt?.dataset?.substock;
+  // Funciona tanto para select como para datalist input
+  const ptKey = sel.tagName==='SELECT' ? sel.value : sel.value;
+  const prod = DB.productos.find(p=>p.ptKey===ptKey||p.nombre===ptKey);
+  const substock = prod?.substock;
   if(substock){
     const origenSel=document.getElementById('pf-origen');
     if(origenSel){
@@ -1674,7 +1751,7 @@ function calcArmado(){
   const ki=parseFloat(document.getElementById('pf-kgin')?.value)||0;
   const uni=parseInt(document.getElementById('pf-unidades')?.value)||0;
   const sel=document.getElementById('pf-producto');if(!sel)return;
-  const prod=DB.productos.find(p=>p.ptKey===sel.value);
+  const prod=DB.productos.find(p=>p.ptKey===sel.value||p.nombre===sel.value);
   const prev=document.getElementById('pf-prev');if(!prev||!prod||!ki||!uni)return;
   const ku=(prod.kgPorcion*uni).toFixed(3);
   const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
@@ -1800,7 +1877,9 @@ function addProcesoCoccion(){
 function addProcesoArmado(){
   const fecha=document.getElementById('pf-fecha').value;
   const origen=document.getElementById('pf-origen').value;
-  const ptKey=document.getElementById('pf-producto').value;
+  const _prodInput=document.getElementById('pf-producto');
+  const _prodFound=DB.productos.find(p=>p.ptKey===_prodInput?.value||p.nombre===_prodInput?.value);
+  const ptKey=_prodFound?.ptKey||_prodInput?.value;
   const kgin=parseFloat(document.getElementById('pf-kgin').value);
   const unidades=parseInt(document.getElementById('pf-unidades').value);
   const recorte=parseFloat(document.getElementById('pf-recorte').value)||0;
@@ -2046,7 +2125,7 @@ function renderDespachoEmpresasPanel(){
         const totalKgTeo = d.items.reduce((a,i)=>a+(i.kgTeorico||0),0);
         return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
           <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f0f4ff;flex-wrap:wrap">
-            <span style="font-size:12px;color:#888">${d.fecha}</span>
+            <span style="font-size:12px;color:#888">${fmtFecha(d.fecha)}</span>
             <span style="font-weight:600;flex:1">Despacho empresas — ${d.items.length} productos · ${totalU} u. · ${fmt(totalKgTeo,2)} kg teo.</span>
             ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" onclick="delDespachoM2('${d.id}')">Borrar</button>`:''}
           </div>
@@ -2331,10 +2410,10 @@ function renderVentasHistorial(){
       const delBtns = canDel ? g.indices.map(idx=>`<button class="btn-sm" onclick="delVenta(${idx});renderVentas()">x</button>`).join(' ') : '';
       return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;overflow:hidden">
         <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;background:#fafafa">
-          <span style="font-size:12px;color:#aaa">${g.fecha}</span>
+          <span style="font-size:12px;color:#aaa">${fmtFecha(g.fecha)}</span>
           <span style="font-weight:500;flex:1">${g.producto}</span>
           <span style="font-size:12px;color:#666;margin-right:8px">${g.totalU} u.</span>
-          ${canDel?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" data-fecha="${g.fecha}" data-prod="${g.producto}" data-batch="${g.batch_id||''}" onclick="g_borrarGrupo(this)">Borrar grupo</button>`:''}
+          ${canDel?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" data-fecha="${fmtFecha(g.fecha)}" data-prod="${g.producto}" data-batch="${g.batch_id||''}" onclick="g_borrarGrupo(this)">Borrar grupo</button>`:''}
         </div>
       </div>`;
     }
@@ -2344,7 +2423,7 @@ function renderVentasHistorial(){
       <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f0f4ff;cursor:pointer"
            onclick="toggleBatch(${bid})">
         <span style="font-size:18px" id="batch-arrow-${bid}">▶</span>
-        <span style="font-size:12px;color:#888">${g.fecha}</span>
+        <span style="font-size:12px;color:#888">${fmtFecha(g.fecha)}</span>
         <span style="font-weight:600;flex:1">Importación — ${g.items.length} productos · ${g.totalU} u. totales</span>
         <span style="font-size:11px;color:#888">${g.usuario||''}</span>
         ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5"
@@ -2455,7 +2534,11 @@ function renderVentas(){
       <div class="ctitle">Registrar venta manual</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="v-fecha" value="${today()}"></div>
-        <div class="fg"><label>Producto</label><select id="v-prod" onchange="updateVentaInfo()">${opts}</select></div>
+        <div class="fg"><label>Producto</label>
+        <input type="text" list="v-prod-list" id="v-prod" class="combo-input" autocomplete="off"
+               oninput="updateVentaInfo()" placeholder="Escribí para filtrar...">
+        <datalist id="v-prod-list">${DB.productos.map(p=>`<option value="${p.nombre}">`).join('')}</datalist>
+      </div>
         <div class="fg" style="max-width:90px"><label>Unidades</label><input type="number" id="v-uni" placeholder="0" oninput="updateVentaInfo()"></div>
       </div>
       <div id="v-prev" style="font-size:11px;margin-bottom:10px;min-height:32px"></div>
@@ -3056,7 +3139,7 @@ function renderProveedores(){
         <div style="overflow-x:auto"><table>
           <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg bruto</th><th>Costo total</th><th>Lote</th><th>Kg desperdicio</th><th>Kg limpio</th><th>Rendimiento</th><th>$/kg limpio real</th></tr></thead>
           <tbody>${filas.map(f=>`<tr>
-            <td>${f.ing.fecha}</td>
+            <td>${fmtFecha(f.ing.fecha)}</td>
             <td>${f.ing.proteina}</td>
             <td>${fmt(f.kgBruto,2)} kg</td>
             <td>$${fmt(f.ing.costo_kg||0,2)}</td>
@@ -3084,11 +3167,12 @@ function addProveedor(){
   DB.proveedores.push({nombre,contacto,notas,id:Date.now()});
   saveDB();renderProveedores();
   // Actualizar el select en ingreso si está visible
-  const sel=document.getElementById('i-prov');
-  if(sel){
+  // Actualizar datalist de proveedor si está visible
+  const dl=document.getElementById('i-prov-list');
+  if(dl){
     const opt=document.createElement('option');
-    opt.value=nombre;opt.textContent=nombre;
-    sel.appendChild(opt);
+    opt.value=nombre;
+    dl.appendChild(opt);
   }
 }
 
@@ -3132,7 +3216,7 @@ function renderEmpleados(){
           <tbody>${data.limpieza.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
             const dc=Math.abs(r.dev)<3?'bok':Math.abs(r.dev)<8?'bwarn':'bdanger';
             return `<tr>
-              <td>${r.fecha}</td>
+              <td>${fmtFecha(r.fecha)}</td>
               <td>${r.proteina}</td>
               <td>${fmt(r.kg_in,2)} kg</td>
               <td style="color:#a32d2d">${fmt(r.kg_desp,2)} kg</td>
@@ -3151,7 +3235,7 @@ function renderEmpleados(){
           <tbody>${data.coccion.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(r=>{
             const dc=Math.abs(r.dev)<3?'bok':Math.abs(r.dev)<8?'bwarn':'bdanger';
             return `<tr>
-              <td>${r.fecha}</td>
+              <td>${fmtFecha(r.fecha)}</td>
               <td>${r.proteina}</td>
               <td>${fmt(r.kg_in,2)} kg</td>
               <td style="color:#085041">${fmt(r.kg_out,2)} kg</td>
@@ -3516,7 +3600,7 @@ function renderAdminLotes(){
           const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
           return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f8f8f5;border-radius:6px;font-size:11px;flex-wrap:wrap">
             <span class="badge ${tl}">${p.tipo}</span>
-            <span style="color:#888">${p.fecha}</span>
+            <span style="color:#888">${fmtFecha(p.fecha)}</span>
             <span>${p.origen||'—'} → ${p.destino||'—'}</span>
             <span style="color:#888">${fmt(p.kg_in,2)} → ${fmt(p.kg_out,2)} kg</span>
             ${p.responsable?`<span style="color:#aaa">· ${p.responsable}</span>`:''}
@@ -3585,17 +3669,17 @@ function exportarJSON(){
 function exportarExcel(){
   const lines=['TABLERO DE PRODUCCIÓN — '+today(),'',
     '=== INGRESOS ===','Fecha\tProteína\tKg bruto\t$/kg\tCosto total\tProveedor\tUsuario'];
-  DB.ingresos.forEach(r=>lines.push(`${r.fecha}\t${r.proteina}\t${fmt(r.kg_bruto,2)}\t${fmt(r.costo_kg,2)}\t${fmt(r.kg_bruto*r.costo_kg,2)}\t${r.proveedor||''}\t${r.usuario||''}`));
+  DB.ingresos.forEach(r=>lines.push(`${fmtFecha(r.fecha)}\t${r.proteina}\t${fmt(r.kg_bruto,2)}\t${fmt(r.costo_kg,2)}\t${fmt(r.kg_bruto*r.costo_kg,2)}\t${r.proveedor||''}\t${r.usuario||''}`));
   lines.push('','=== PROCESOS ===','Fecha\tProteína\tTipo\tOrigen\tDestino\tEntrada\tSalida\tDesp./merma\tUnidades\tResponsable\tUsuario');
-  DB.procesos.forEach(p=>lines.push(`${p.fecha}\t${p.proteina}\t${p.tipo}\t${p.origen||''}\t${p.destino||''}\t${fmt(p.kg_in,2)}\t${fmt(p.kg_out,2)}\t${fmt(p.kg_in-p.kg_out,2)}\t${p.unidades||''}\t${p.responsable||''}\t${p.usuario||''}`));
+  DB.procesos.forEach(p=>lines.push(`${fmtFecha(p.fecha)}\t${p.proteina}\t${p.tipo}\t${p.origen||''}\t${p.destino||''}\t${fmt(p.kg_in,2)}\t${fmt(p.kg_out,2)}\t${fmt(p.kg_in-p.kg_out,2)}\t${p.unidades||''}\t${p.responsable||''}\t${p.usuario||''}`));
   lines.push('','=== VENTAS ===','Fecha\tProducto\tProteína\tUnidades\tkg MP teórico/u\tTotal kg MP teo\tStock prev.\tStock act.\tUsuario');
   DB.ventas.forEach(v=>{
     const p=DB.productos.find(pp=>pp.nombre===v.producto);
     const kgTeo=p?calcKgMPTeorico(p):null;
-    lines.push(`${v.fecha}\t${v.producto}\t${p?p.proteina:''}\t${v.unidades}\t${kgTeo?fmt(kgTeo,3):''}\t${kgTeo?fmt(kgTeo*v.unidades,3):''}\t${v.sp??''}\t${v.sa??''}\t${v.usuario||''}`);
+    lines.push(`${fmtFecha(v.fecha)}\t${v.producto}\t${p?p.proteina:''}\t${v.unidades}\t${kgTeo?fmt(kgTeo,3):''}\t${kgTeo?fmt(kgTeo*v.unidades,3):''}\t${v.sp??''}\t${v.sa??''}\t${v.usuario||''}`);
   });
   lines.push('','=== CALIDAD ===','Fecha\tCaídas\tPedidos\tErrores\t% error\tNotas\tUsuario');
-  DB.calidad.forEach(r=>lines.push(`${r.fecha}\t${r.caidas}\t${r.pedidos}\t${r.errores}\t${r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):0}%\t${r.notas||''}\t${r.usuario||''}`));
+  DB.calidad.forEach(r=>lines.push(`${fmtFecha(r.fecha)}\t${r.caidas}\t${r.pedidos}\t${r.errores}\t${r.pedidos>0?(r.errores/r.pedidos*100).toFixed(1):0}%\t${r.notas||''}\t${r.usuario||''}`));
   const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`planta_produccion_${today()}.xls`;a.click();
 }
