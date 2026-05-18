@@ -2260,11 +2260,11 @@ function confirmarDespachoM2(){
   if(!DB.despachosM2) DB.despachosM2=[];
   DB.despachosM2.push(despacho);
   window._m2ImportData = null;
-  
+
   saveDB();
-  if(fileInput) fileInput.value='';
+  const fi = document.getElementById('m2-pdf-file');
+  if(fi) fi.value='';
   document.getElementById('m2-preview').innerHTML='';
-  // Re-render sección M2
   document.getElementById('ventas-m2').innerHTML = renderDespachoEmpresasPanel();
 }
 
