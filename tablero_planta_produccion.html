@@ -105,6 +105,7 @@ tr.proc-row{cursor:pointer}
 tr.proc-row:hover td{background:#f8f8f5}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -311,6 +312,7 @@ const SB_RECORD_ID = 'planta_v5';
 function defaultDB(){
   return {
     ingresos:[],procesos:[],ventas:[],calidad:[],lotes:[],proveedores:[],
+    despachosM2:[],productosM2:[],
     ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
     pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
     users:JSON.parse(JSON.stringify(DEFAULT_USERS)),
@@ -365,6 +367,7 @@ async function _doSaveDB(){
         teorico:DB.teorico,
         substocks:DB.substocks,
         productos:DB.productos,
+        productosM2:DB.productosM2,
         users:DB.users,
         empleados:DB.empleados,
         // Arrays: unir remoto + local, deduplicar por id, el más reciente gana
@@ -377,6 +380,7 @@ async function _doSaveDB(){
         caidas:mergeArrayById(remote.caidas||[], DB.caidas||[]),
         devoluciones:mergeArrayById(remote.devoluciones||[], DB.devoluciones||[]),
         consumoInterno:mergeArrayById(remote.consumoInterno||[], DB.consumoInterno||[]),
+        despachosM2:mergeArrayById(remote.despachosM2||[], DB.despachosM2||[]),
       };
       // Actualizar DB local con el merge para que todos los usuarios vean consistencia
       Object.assign(DB, mergedDB);
@@ -1329,6 +1333,7 @@ function renderProceso(){
     <button class="mtab${activeModo==='coccion'?' active':''}" onclick="setModo('coccion',this)">2. Cocción</button>
     <button class="mtab${activeModo==='apertura'?' active':''}" onclick="setModo('apertura',this)">3. Apertura de bolsa</button>
     <button class="mtab${activeModo==='armado'?' active':''}" onclick="setModo('armado',this)">4. Armado</button>
+    <button class="mtab${activeModo==='despacho_emp'?' active':''}" onclick="setModo('despacho_emp',this)">🏢 Despacho empresas</button>
   </div>
   <div id="proceso-form"></div>
   <div class="card">
@@ -1337,12 +1342,23 @@ function renderProceso(){
       <thead><tr><th>Fecha</th><th>Proteína</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
       <tbody>${histHTML}</tbody>
     </table></div>
+  </div>
+  <div class="card" id="hist-bajas-m2">
+    <div class="ctitle">Historial bajas — Despacho empresas</div>
+    ${renderHistBajasM2()}
   </div>`;
   renderProcesoForm();
 }
 
 function setProtProceso(p,el){activeProt=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
-function setModo(m,el){activeModo=m;document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
+function setModo(m,el){
+  activeModo=m;
+  // En modo despacho_emp no aplica proteína — ocultamos tabs de proteína
+  document.querySelectorAll('.ptab').forEach(b=>b.style.display=m==='despacho_emp'?'none':'');
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderProcesoForm();
+}
 
 function renderProcesoForm(){
   const frm=document.getElementById('proceso-form');if(!frm)return;
@@ -1624,6 +1640,152 @@ function calcArmado(){
   document.getElementById('pf-recorte').value=rec;
 }
 
+  } else if(activeModo==='despacho_emp'){
+    // Modo despacho empresas: el jefe de cocina registra kg reales bajados por sub-stock
+    // Ve el teórico del despacho de esa fecha como referencia
+    const fechaHoy = today();
+    const todosSubstocks = Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&s.estado==='cocido'||s.estado==='abierto');
+    const todosSS = Object.values(DB.substocks).flat().filter(s=>s.type==='kg');
+    
+    // Despachos del día seleccionado (para mostrar teórico)
+    const fechaRef = document.getElementById('pf-fecha-desp')?.value || fechaHoy;
+    const despachosDelDia = (DB.despachosM2||[]).filter(d=>d.fecha===fechaRef);
+    
+    // Calcular teórico acumulado por sub-stock para esa fecha
+    const teoricoPorSS = {};
+    despachosDelDia.forEach(d=>{
+      d.items.forEach(it=>{
+        if(!teoricoPorSS[it.substock]) teoricoPorSS[it.substock]={kg:0,label:''};
+        teoricoPorSS[it.substock].kg += it.kgTeorico||0;
+        const ssDef = findSSdef(it.substock);
+        teoricoPorSS[it.substock].label = ssDef?ssDef.label:it.substock;
+      });
+    });
+    
+    // Bajas ya registradas para esa fecha
+    const bajasDelDia = (DB.procesos||[]).filter(p=>p.tipo==='baja_empresa'&&p.fecha===fechaRef);
+    const bajasPorSS = {};
+    bajasDelDia.forEach(b=>{
+      if(!bajasPorSS[b.substock_origen]) bajasPorSS[b.substock_origen]=0;
+      bajasPorSS[b.substock_origen] += b.kg_in;
+    });
+    
+    // Sub-stocks con stock cocido/abierto disponibles
+    const ssDisponibles = Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&(s.estado==='cocido'||s.estado==='abierto'));
+    
+    const teoricoHTML = Object.keys(teoricoPorSS).length > 0
+      ? `<div style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:500;color:#0c447c;margin-bottom:6px">Teórico del despacho ${fechaRef}</div>
+          ${Object.entries(teoricoPorSS).map(([ss,d])=>{
+            const bajado = bajasPorSS[ss]||0;
+            const diff = bajado - d.kg;
+            const diffColor = Math.abs(diff)<0.2?'#085041':Math.abs(diff)<0.5?'#854f0b':'#a32d2d';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid #c7dff5;flex-wrap:wrap;gap:4px">
+              <span style="flex:1">${d.label}</span>
+              <span style="color:#888">Teo: <strong>${fmt(d.kg,3)} kg</strong></span>
+              ${bajado>0?`<span style="color:#085041">Bajado: <strong>${fmt(bajado,3)} kg</strong></span>`:''}
+              ${bajado>0?`<span style="font-weight:600;color:${diffColor}">${diff>=0?'+':''}${fmt(diff,3)} kg</span>`:'<span style="color:#ccc;font-size:11px">pendiente</span>'}
+            </div>`;
+          }).join('')}
+        </div>`
+      : `<div class="info-box">No hay despacho de empresas cargado para ${fechaRef}. Cargá el PDF en la pestaña Ventas → Despacho empresas primero.</div>`;
+
+    frm.innerHTML=`<div class="card">
+      <div class="ctitle">Registrar baja real de sub-stock — Despacho empresas</div>
+      <div class="info-box">Registrá los kg reales que bajaste de cada sub-stock para armar los pedidos. Podés hacerlo en varias entradas.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:160px"><label>Fecha del despacho</label><input type="date" id="pf-fecha-desp" value="${fechaHoy}" onchange="renderProcesoForm()"></div>
+      </div>
+      ${teoricoHTML}
+      <div style="font-size:11px;font-weight:500;color:#1a1a1a;margin-bottom:8px">Registrar baja real:</div>
+      <div class="frow">
+        <div class="fg"><label>Sub-stock que bajás</label>
+          <select id="pf-ss-baja">
+            ${ssDisponibles.map(s=>`<option value="${s.key}">${s.label} — ${fmt(getSS(s.key),2)} kg disponibles${teoricoPorSS[s.key]?' (teo: '+fmt(teoricoPorSS[s.key].kg,3)+' kg)':''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg" style="max-width:130px"><label>Kg reales bajados</label>
+          <input type="number" id="pf-kg-baja" placeholder="0.00" step="0.01">
+        </div>
+        <div class="fg" style="max-width:200px"><label>Nota <span style="font-size:10px;color:#888">(opcional)</span></label>
+          <input type="text" id="pf-nota-baja" placeholder="Ej: quedó algo">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="addBajaEmpresa()">+ Registrar baja</button>
+    </div>`;
+  }
+}
+
+function renderHistBajasM2(){
+  const bajas = (DB.procesos||[]).filter(p=>p.tipo==='baja_empresa').slice().reverse();
+  if(bajas.length===0) return '<p style="color:#888;font-size:12px;text-align:center;padding:.5rem">Sin bajas registradas</p>';
+  
+  // Agrupar por fecha
+  const porFecha = {};
+  bajas.forEach(b=>{
+    if(!porFecha[b.fecha]) porFecha[b.fecha]=[];
+    porFecha[b.fecha].push(b);
+  });
+  
+  return Object.entries(porFecha).sort((a,b)=>b[0].localeCompare(a[0])).map(([fecha,bs])=>{
+    // Calcular teórico del día
+    const despachosDelDia = (DB.despachosM2||[]).filter(d=>d.fecha===fecha);
+    const teoricoPorSS = {};
+    despachosDelDia.forEach(d=>{
+      d.items.forEach(it=>{
+        if(!teoricoPorSS[it.substock]) teoricoPorSS[it.substock]=0;
+        teoricoPorSS[it.substock] += it.kgTeorico||0;
+      });
+    });
+    
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">${fecha}</div>
+      <table style="width:100%;font-size:12px">
+        <thead><tr><th>Sub-stock</th><th>Kg reales</th><th>Kg teórico</th><th>Desvío</th><th>Nota</th><th></th></tr></thead>
+        <tbody>${bs.map((b,i)=>{
+          const ssDef = findSSdef(b.substock_origen);
+          const teo = teoricoPorSS[b.substock_origen]||null;
+          const diff = teo!==null?b.kg_in-teo:null;
+          const dc = diff===null?'bgray':Math.abs(diff)<0.2?'bok':Math.abs(diff)<0.5?'bwarn':'bdanger';
+          const idx = DB.procesos.findIndex(p=>p.id===b.id);
+          return `<tr>
+            <td>${ssDef?ssDef.label:b.substock_origen}</td>
+            <td style="font-weight:600">${fmt(b.kg_in,3)} kg</td>
+            <td style="color:#888">${teo!==null?fmt(teo,3)+' kg':'—'}</td>
+            <td><span class="badge ${dc}">${diff!==null?(diff>=0?'+':'')+fmt(diff,3)+' kg':'—'}</span></td>
+            <td style="color:#888;font-size:11px">${b.nota||'—'}</td>
+            <td>${CU.role==='gerente'?`<button class="btn-sm" onclick="delProceso(${idx})">x</button>`:''}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+function addBajaEmpresa(){
+  const fecha = document.getElementById('pf-fecha-desp')?.value||today();
+  const ss = document.getElementById('pf-ss-baja')?.value;
+  const kg = parseFloat(document.getElementById('pf-kg-baja')?.value);
+  const nota = document.getElementById('pf-nota-baja')?.value||'';
+  if(!ss||isNaN(kg)||kg<=0){alert('Completá sub-stock y kg.');return;}
+  const ssDef = findSSdef(ss);
+  const stockActual = getSS(ss);
+  if(stockActual<kg){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
+  setSS(ss, stockActual-kg);
+  DB.procesos.push({
+    fecha, tipo:'baja_empresa', proteina:ssDef?.proteina||'',
+    substock_origen:ss, origen:ssDef?.label||ss, destino:'Despacho empresas',
+    kg_in:kg, kg_out:0, kg_desperdicio:0, nota,
+    usuario:CU.nombre, id:Date.now()
+  });
+  saveDB();
+  renderProcesoForm();
+  // Actualizar historial
+  const hbm2 = document.getElementById('hist-bajas-m2');
+  if(hbm2) hbm2.innerHTML=`<div class="ctitle">Historial bajas — Despacho empresas</div>${renderHistBajasM2()}`;
+  checkAlertas();
+}
+
 function addProcesoLimpieza(){
   const fecha=document.getElementById('pf-fecha').value;
   const kgin=parseFloat(document.getElementById('pf-kgin').value);
@@ -1706,6 +1868,10 @@ function delProceso(i){
   if(p.tipo==='armado'){
     setSS(p.substock_origen,getSS(p.substock_origen)+p.kg_in);
     setPT(p.destino,Math.max(0,getPT(p.destino)-p.unidades));
+  }
+  if(p.tipo==='baja_empresa'){
+    // Revertir: devolver kg al sub-stock
+    setSS(p.substock_origen, getSS(p.substock_origen)+p.kg_in);
   }
   DB.procesos.splice(i,1);saveDB();renderProceso();checkAlertas();
 }
@@ -1791,6 +1957,367 @@ function renderStock(){
 
 function editSS(k,v){if(CU.role!=='gerente')return;setSS(k,parseFloat(v));saveDB();}
 function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB();}
+
+// ============================================================
+// DESPACHO EMPRESAS (MODELO 2)
+// ============================================================
+
+// Mapeo de nombres del PDF a productos del sistema
+// Busca por stockNombre, nombre, o variantes comunes
+function buscarProductoPorNombrePDF(nombrePDF){
+  const n = nombrePDF.toLowerCase().trim();
+  // Primero buscar en productos M1
+  let found = DB.productos.find(p=>{
+    const sn = (p.stockNombre||'').toLowerCase();
+    const nm = (p.nombre||'').toLowerCase();
+    return sn && n.includes(sn.split(' - ')[0].toLowerCase()) ||
+           nm && n.includes(nm.split(' - ')[0].toLowerCase()) ||
+           sn === n || nm === n;
+  });
+  if(!found){
+    // Buscar en productosM2
+    found = (DB.productosM2||[]).find(p=>{
+      const nm = (p.nombre||'').toLowerCase();
+      return nm === n || n.includes(nm.split(' - ')[0].toLowerCase());
+    });
+  }
+  return found || null;
+}
+
+// Mapeos manuales de nombres frecuentes del PDF → ptKey o nombre del sistema
+const PDF_NOMBRE_MAP = {
+  'ternera braseada al horno': 'Ternera braseada 150g',
+  'tiras de res con hongos': 'Tiras cuadril hongos 170g',
+  'tiras de cuadril con vegetales': 'Tiras cuadril veg 300g',
+  'pollo teriyaki': 'Pollo teriyaki 300g',
+  'pechuga provenzal': 'Pechuga provenzal 250g',
+  'pechuga con limón': 'Pechuga limón 250g',
+  'pechuga con tomillo': 'Pechuga tomillo 250g',
+  'curry de pollo': 'Curry pollo 300g',
+  'tiras de pollo con vegetales': 'Tiras pollo veg 300g',
+  'solomillo hawaiano': 'Solomillo hawaiano 170g',
+  'wrap césar': 'Wrap César',
+  'wrap criollo': 'Wrap criollo',
+  'wrap italiano': 'Wrap italiano',
+  'ensalada césar': 'Ensalada César',
+};
+
+function parsearPDFTexto(textoCompleto){
+  // Extrae líneas del PDF y busca productos proteicos con cantidad
+  // Formato: "Nombre del plato — xN" y debajo "• Proteína (Xgr)"
+  const lineas = textoCompleto.split('
+').map(l=>l.trim()).filter(Boolean);
+  const resultados = {}; // ptKey -> {prod, unidades, gramaje}
+  
+  let cantActual = 0;
+  for(let i=0; i<lineas.length; i++){
+    const l = lineas[i];
+    // Detectar línea de cantidad: "Algo — x20" o "Algo — x8"
+    const mCant = l.match(/—\s*x(\d+)\s*$/);
+    if(mCant){
+      cantActual = parseInt(mCant[1]);
+      continue;
+    }
+    // Detectar línea de ingrediente proteico: "• Nombre (Xgr)" o "• Nombre (Xg)"
+    const mIngr = l.match(/^[•·]\s*(.+?)\s*\((\d+)\s*g(?:r)?\)/);
+    if(mIngr && cantActual > 0){
+      const nombreIngr = mIngr[1].trim();
+      const gramaje = parseInt(mIngr[2]);
+      
+      // Ver si es una proteína que conocemos
+      const nombreLow = nombreIngr.toLowerCase();
+      let prod = null;
+      
+      // Primero intentar con el mapa directo
+      for(const [key, ptKey] of Object.entries(PDF_NOMBRE_MAP)){
+        if(nombreLow.includes(key)){
+          // Buscar con el gramaje correcto si hay variantes
+          prod = DB.productos.find(p=>p.ptKey===ptKey) || 
+                 DB.productos.find(p=>p.nombre.toLowerCase().includes(key));
+          // Si hay variantes por gramaje, buscar la que más se acerca
+          const variantes = DB.productos.filter(p=>p.nombre.toLowerCase().includes(key));
+          if(variantes.length > 1){
+            const exacta = variantes.find(p=>Math.round(p.kgPorcion*1000)===gramaje);
+            if(exacta) prod = exacta;
+          }
+          break;
+        }
+      }
+      // Si no encontró por mapa, intentar por productosM2
+      if(!prod){
+        prod = (DB.productosM2||[]).find(p=>p.nombre.toLowerCase().includes(nombreLow.split(' ')[0]));
+      }
+      
+      if(prod){
+        const key = prod.ptKey || prod.nombre;
+        if(!resultados[key]){
+          resultados[key] = {prod, unidades:0, gramaje:prod.kgPorcion*1000, noMatch:[]};
+        }
+        resultados[key].unidades += cantActual;
+      }
+      // Si no matcheó, guardarlo como no mapeado (solo si parece proteína)
+      // (ignoramos acompañamientos)
+    }
+    // Reset cantidad si la línea no es ingrediente ni cantidad
+    if(!mIngr && !mCant && !l.startsWith('•') && !l.startsWith('·') && l.length > 3){
+      // nueva sección de plato, reseteamos
+      if(l.match(/—\s*x\d+/)) cantActual = 0;
+    }
+  }
+  return resultados;
+}
+
+function renderDespachoEmpresasPanel(){
+  const despachos = (DB.despachosM2||[]).slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  
+  const histHTML = despachos.length === 0
+    ? '<p style="color:#888;font-size:12px;text-align:center;padding:1rem">Sin despachos registrados</p>'
+    : despachos.map(d=>{
+        const totalU = d.items.reduce((a,i)=>a+i.unidades,0);
+        const totalKgTeo = d.items.reduce((a,i)=>a+(i.kgTeorico||0),0);
+        return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f0f4ff;flex-wrap:wrap">
+            <span style="font-size:12px;color:#888">${d.fecha}</span>
+            <span style="font-weight:600;flex:1">Despacho empresas — ${d.items.length} productos · ${totalU} u. · ${fmt(totalKgTeo,2)} kg teo.</span>
+            ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" onclick="delDespachoM2('${d.id}')">Borrar</button>`:''}
+          </div>
+          <div style="padding:8px 14px">
+            <table style="width:100%;font-size:12px">
+              <thead><tr><th>Producto</th><th>Unidades</th><th>Kg teórico</th><th>Sub-stock</th></tr></thead>
+              <tbody>${d.items.map(it=>`<tr>
+                <td>${it.nombre}</td>
+                <td style="text-align:center;font-weight:600">${it.unidades}</td>
+                <td style="text-align:center">${fmt(it.kgTeorico,3)} kg</td>
+                <td style="color:#888;font-size:11px">${it.substock||'—'}</td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+  <div class="card">
+    <div class="ctitle">Cargar despacho desde PDF</div>
+    <div class="info-box">Seleccioná el PDF de pedidos. El sistema lo lee automáticamente y extrae las proteínas.</div>
+    <div class="frow" style="align-items:flex-end">
+      <div class="fg" style="max-width:160px"><label>Fecha del despacho</label><input type="date" id="m2-fecha" value="${today()}"></div>
+      <div class="fg">
+        <label>PDF de pedidos</label>
+        <input type="file" id="m2-pdf-file" accept="application/pdf" style="padding:6px 9px" onchange="procesarPDFM2()">
+      </div>
+    </div>
+    <div id="m2-loading" style="display:none;font-size:12px;color:#888;padding:8px 0">⏳ Leyendo PDF...</div>
+    <div id="m2-preview" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <div class="ctitle">Historial de despachos</div>
+    ${histHTML}
+  </div>`;
+}
+
+async function procesarPDFM2(){
+  const fileInput = document.getElementById('m2-pdf-file');
+  const fecha = document.getElementById('m2-fecha')?.value||today();
+  const prev = document.getElementById('m2-preview');
+  const loading = document.getElementById('m2-loading');
+  if(!fileInput||!fileInput.files||!fileInput.files[0]){
+    prev.innerHTML='<div class="alert-row">Seleccioná un PDF primero.</div>';return;
+  }
+  loading.style.display='block';
+  prev.innerHTML='';
+  try{
+    const pdfjsLib=window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const arrayBuffer=await fileInput.files[0].arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let textoCompleto='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const tc=await page.getTextContent();
+      let lastY=null;
+      for(const item of tc.items){
+        const y=item.transform[5];
+        if(lastY!==null&&Math.abs(y-lastY)>2) textoCompleto+='\n';
+        textoCompleto+=item.str;
+        lastY=y;
+      }
+      textoCompleto+='\n';
+    }
+    loading.style.display='none';
+    const resultados=parsearPDFTexto(textoCompleto);
+    const items=Object.values(resultados);
+    if(items.length===0){
+      prev.innerHTML='<div class="alert-row">No se encontraron proteínas conocidas en el PDF. Verificá que el PDF sea el correcto.</div>';
+      return;
+    }
+    const porSubstock={};
+    items.forEach(it=>{
+      const ss=it.prod.substock;
+      const kgTeo=it.prod.kgPorcion*it.unidades;
+      if(!porSubstock[ss])porSubstock[ss]={label:'',kg:0};
+      const ssDef=findSSdef(ss);
+      porSubstock[ss].label=ssDef?ssDef.label:ss;
+      porSubstock[ss].kg+=kgTeo;
+    });
+    const totalU=items.reduce((a,i)=>a+i.unidades,0);
+    const totalKg=items.reduce((a,i)=>a+(i.prod.kgPorcion*i.unidades),0);
+    window._m2ImportData={items,fecha};
+    prev.innerHTML=`
+    <div style="margin-top:4px">
+      <div style="font-size:11px;font-weight:500;color:#0c447c;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">✅ Productos encontrados (${items.length})</div>
+      <table style="margin-bottom:12px">
+        <thead><tr><th>Producto</th><th>Unidades</th><th>Kg teórico</th><th>Sub-stock</th></tr></thead>
+        <tbody>${items.map(it=>{
+          const kgTeo=it.prod.kgPorcion*it.unidades;
+          const ssDef=findSSdef(it.prod.substock);
+          return '<tr><td>'+it.prod.nombre+'</td><td style="text-align:center;font-weight:600">'+it.unidades+'</td><td style="text-align:center">'+fmt(kgTeo,3)+' kg</td><td style="color:#888;font-size:11px">'+(ssDef?ssDef.label:it.prod.substock)+'</td></tr>';
+        }).join('')}</tbody>
+      </table>
+      <div style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:500;color:#0c447c;margin-bottom:6px">Resumen teórico por sub-stock (referencia para cocina)</div>
+        ${Object.entries(porSubstock).map(([ss,d])=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #c7dff5"><span>'+d.label+'</span><strong>'+fmt(d.kg,3)+' kg teórico</strong></div>').join('')}
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;font-weight:600">
+          <span>Total: ${totalU} unidades</span>
+          <span>${fmt(totalKg,3)} kg teórico total</span>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="confirmarDespachoM2()">✅ Confirmar despacho</button>
+    </div>`;
+  }catch(e){
+    loading.style.display='none';
+    prev.innerHTML='<div class="alert-row">Error al leer el PDF: '+(e.message||e)+'. Verificá que sea un PDF válido.</div>';
+  }
+}
+
+function confirmarDespachoM2(){
+  const {items, fecha} = window._m2ImportData||{};
+  if(!items||items.length===0) return;
+  
+  const despachoItems = items.map(it=>({
+    nombre: it.prod.nombre,
+    ptKey: it.prod.ptKey,
+    substock: it.prod.substock,
+    unidades: it.unidades,
+    kgTeorico: it.prod.kgPorcion * it.unidades,
+    kgPorcion: it.prod.kgPorcion,
+  }));
+  
+  const despacho = {
+    id: Date.now(),
+    fecha,
+    items: despachoItems,
+    usuario: CU.nombre,
+  };
+  
+  if(!DB.despachosM2) DB.despachosM2=[];
+  DB.despachosM2.push(despacho);
+  window._m2ImportData = null;
+  
+  saveDB();
+  if(fileInput) fileInput.value='';
+  document.getElementById('m2-preview').innerHTML='';
+  // Re-render sección M2
+  document.getElementById('ventas-m2').innerHTML = renderDespachoEmpresasPanel();
+}
+
+async function delDespachoM2(id){
+  const ok = await showConfirm('¿Borrar este despacho de empresas?');
+  if(!ok) return;
+  const nid = Number(id);
+  if(DB.despachosM2) DB.despachosM2 = DB.despachosM2.filter(d=>d.id!==nid);
+  _deletedIds.add(String(id));
+  await saveDB();
+  document.getElementById('ventas-m2').innerHTML = renderDespachoEmpresasPanel();
+}
+
+// ============================================================
+// RANKING DE VENTAS (M1 + M2 + General)
+// ============================================================
+let activeRankingTab = 'general';
+function renderRankingVentas(){
+  // Ventas M1: de DB.ventas
+  const statsM1 = {};
+  DB.ventas.forEach(v=>{
+    const p = DB.productos.find(pp=>pp.nombre===v.producto);
+    if(!p) return;
+    if(!statsM1[v.producto]) statsM1[v.producto]={nombre:v.producto, proteina:p.proteina, unidades:0, modelo:'M1'};
+    statsM1[v.producto].unidades += v.unidades;
+  });
+  
+  // Ventas M2: de DB.despachosM2
+  const statsM2 = {};
+  (DB.despachosM2||[]).forEach(d=>{
+    d.items.forEach(it=>{
+      if(!statsM2[it.nombre]) statsM2[it.nombre]={nombre:it.nombre, ptKey:it.ptKey, substock:it.substock, unidades:0, kgTeorico:0, modelo:'M2'};
+      statsM2[it.nombre].unidades += it.unidades;
+      statsM2[it.nombre].kgTeorico += it.kgTeorico||0;
+    });
+  });
+  
+  const listaM1 = Object.values(statsM1).sort((a,b)=>b.unidades-a.unidades);
+  const listaM2 = Object.values(statsM2).sort((a,b)=>b.unidades-a.unidades);
+  
+  // General: combinar M1 + M2
+  const general = {};
+  [...listaM1,...listaM2].forEach(s=>{
+    if(!general[s.nombre]) general[s.nombre]={nombre:s.nombre,unidades:0,modelos:[]};
+    general[s.nombre].unidades += s.unidades;
+    if(!general[s.nombre].modelos.includes(s.modelo)) general[s.nombre].modelos.push(s.modelo);
+  });
+  const listaGeneral = Object.values(general).sort((a,b)=>b.unidades-a.unidades);
+  const maxGeneral = listaGeneral[0]?.unidades||1;
+  const maxM1 = listaM1[0]?.unidades||1;
+  const maxM2 = listaM2[0]?.unidades||1;
+  
+  function buildRankingHTML(lista, maxU, showKg){
+    if(lista.length===0) return '<p style="color:#888;font-size:12px;text-align:center;padding:1rem">Sin datos</p>';
+    return `<div style="display:flex;flex-direction:column;gap:6px">
+      ${lista.map((s,i)=>{
+        const pct = s.unidades/maxU*100;
+        const color = i<3?'#1D9E75':i<7?'#EF9F27':'#aaa';
+        return `<div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:#888;width:20px;text-align:right">${i+1}</span>
+          <span style="font-size:12px;min-width:200px;flex:1">${s.nombre}</span>
+          <div style="width:100px;background:#f0efe8;border-radius:4px;height:8px">
+            <div style="width:${Math.min(pct,100)}%;background:${color};height:8px;border-radius:4px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;min-width:45px;text-align:right">${s.unidades} u.</span>
+          ${showKg&&s.kgTeorico?`<span style="font-size:11px;color:#888;min-width:55px">${fmt(s.kgTeorico,2)} kg</span>`:''}
+          ${s.modelos?`<span style="font-size:10px;color:#888">${s.modelos.join('+')}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  
+  return `
+  <div class="modo-tabs" style="max-width:400px">
+    <button class="mtab${activeRankingTab==='general'?' active':''}" onclick="setRankingTab('general',this)">General</button>
+    <button class="mtab${activeRankingTab==='m1'?' active':''}" onclick="setRankingTab('m1',this)">Modelo 1</button>
+    <button class="mtab${activeRankingTab==='m2'?' active':''}" onclick="setRankingTab('m2',this)">Empresas</button>
+  </div>
+  <div class="card" id="ranking-general" style="display:${activeRankingTab==='general'?'block':'none'}">
+    <div class="ctitle">Ranking general — M1 + Empresas</div>
+    ${buildRankingHTML(listaGeneral, maxGeneral, false)}
+  </div>
+  <div class="card" id="ranking-m1" style="display:${activeRankingTab==='m1'?'block':'none'}">
+    <div class="ctitle">Ranking Modelo 1 — Bolsas sous vide</div>
+    ${buildRankingHTML(listaM1, maxM1, false)}
+  </div>
+  <div class="card" id="ranking-m2" style="display:${activeRankingTab==='m2'?'block':'none'}">
+    <div class="ctitle">Ranking Empresas — Despacho viandas</div>
+    ${buildRankingHTML(listaM2, maxM2, true)}
+  </div>`;
+}
+
+function setRankingTab(t,el){
+  activeRankingTab=t;
+  ['general','m1','m2'].forEach(k=>{
+    const d=document.getElementById('ranking-'+k);
+    if(d)d.style.display=k===t?'block':'none';
+  });
+  document.querySelectorAll('#ventas .modo-tabs:last-of-type .mtab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+}
 
 // ============================================================
 // VENTAS
@@ -1933,38 +2460,61 @@ function toggleBatch(bid){
   arr.textContent=open?'▶':'▼';
 }
 
+let activeVentasTab='m1';
 function renderVentas(){
   const el=document.getElementById('ventas');
   const opts=DB.productos.map(p=>`<option value="${p.nombre}">${p.nombre}</option>`).join('');
   el.innerHTML=`
-  <p class="sechead">Registrar ventas</p>
-
-  <div class="card">
-    <div class="ctitle">Importar pedidos desde planilla</div>
-    <div class="info-box">Leé los pedidos de una fecha específica desde la planilla de stock y registralos en el tablero de una sola vez.</div>
-    <div class="frow">
-      <div class="fg" style="max-width:120px"><label>Fecha pedido</label><input type="text" id="imp-fecha" placeholder="Ej: 21-4"></div>
-      <div class="fg" style="max-width:160px"><label>Fecha venta (para registrar)</label><input type="date" id="imp-fecha-registro" value="${today()}"></div>
-      <button class="btn btn-primary" style="align-self:flex-end" onclick="importarPedidos()">🔍 Leer planilla</button>
-    </div>
-    <div id="imp-preview"></div>
+  <p class="sechead">Ventas</p>
+  <div class="modo-tabs" style="margin-bottom:1.25rem">
+    <button class="mtab${activeVentasTab==='m1'?' active':''}" onclick="setVentasTab('m1',this)">📦 Modelo 1 — Bolsas</button>
+    <button class="mtab${activeVentasTab==='m2'?' active':''}" onclick="setVentasTab('m2',this)">🏢 Despacho empresas</button>
+    <button class="mtab${activeVentasTab==='ranking'?' active':''}" onclick="setVentasTab('ranking',this)">📊 Ranking</button>
   </div>
-
-  <div class="card">
-    <div class="ctitle">Registrar venta manual</div>
-    <div class="frow">
-      <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="v-fecha" value="${today()}"></div>
-      <div class="fg"><label>Producto</label><select id="v-prod" onchange="updateVentaInfo()">${opts}</select></div>
-      <div class="fg" style="max-width:90px"><label>Unidades</label><input type="number" id="v-uni" placeholder="0" oninput="updateVentaInfo()"></div>
+  <div id="ventas-m1" style="display:${activeVentasTab==='m1'?'block':'none'}">
+    <div class="card">
+      <div class="ctitle">Importar pedidos desde planilla</div>
+      <div class="info-box">Leé los pedidos de una fecha específica desde la planilla de stock y registralos en el tablero de una sola vez.</div>
+      <div class="frow">
+        <div class="fg" style="max-width:120px"><label>Fecha pedido</label><input type="text" id="imp-fecha" placeholder="Ej: 21-4"></div>
+        <div class="fg" style="max-width:160px"><label>Fecha venta (para registrar)</label><input type="date" id="imp-fecha-registro" value="${today()}"></div>
+        <button class="btn btn-primary" style="align-self:flex-end" onclick="importarPedidos()">🔍 Leer planilla</button>
+      </div>
+      <div id="imp-preview"></div>
     </div>
-    <div id="v-prev" style="font-size:11px;margin-bottom:10px;min-height:32px"></div>
-    <button class="btn btn-primary" onclick="addVenta()">+ Registrar venta</button>
+    <div class="card">
+      <div class="ctitle">Registrar venta manual</div>
+      <div class="frow">
+        <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="v-fecha" value="${today()}"></div>
+        <div class="fg"><label>Producto</label><select id="v-prod" onchange="updateVentaInfo()">${opts}</select></div>
+        <div class="fg" style="max-width:90px"><label>Unidades</label><input type="number" id="v-uni" placeholder="0" oninput="updateVentaInfo()"></div>
+      </div>
+      <div id="v-prev" style="font-size:11px;margin-bottom:10px;min-height:32px"></div>
+      <button class="btn btn-primary" onclick="addVenta()">+ Registrar venta</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">Historial Modelo 1</div>
+      <div id="ventas-historial">${renderVentasHistorial()}</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="ctitle">Ventas registradas</div>
-    <div id="ventas-historial">${renderVentasHistorial()}</div>
+  <div id="ventas-m2" style="display:${activeVentasTab==='m2'?'block':'none'}">
+    ${renderDespachoEmpresasPanel()}
+  </div>
+  <div id="ventas-ranking" style="display:${activeVentasTab==='ranking'?'block':'none'}">
+    ${renderRankingVentas()}
   </div>`;
   updateVentaInfo();
+}
+
+function setVentasTab(t,el){
+  activeVentasTab=t;
+  ['m1','m2','ranking'].forEach(k=>{
+    const d=document.getElementById('ventas-'+k);
+    if(d)d.style.display=k===t?'block':'none';
+  });
+  document.querySelectorAll('#ventas .mtab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  if(t==='ranking')document.getElementById('ventas-ranking').innerHTML=renderRankingVentas();
 }
 
 // ID del Google Sheet de pedidos
@@ -2267,21 +2817,27 @@ function renderConfig(){
   const el=document.getElementById('config');
   el.innerHTML=`
   <p class="sechead">Configuración</p>
-  <div class="modo-tabs" style="max-width:400px">
+  <div class="modo-tabs" style="max-width:550px">
     <button class="mtab active" onclick="showConfigTab('teorico',this)">Rendimientos teóricos</button>
-    <button class="mtab" onclick="showConfigTab('productos',this)">Productos</button>
+    <button class="mtab" onclick="showConfigTab('productos',this)">Productos M1</button>
+    <button class="mtab" onclick="showConfigTab('productosM2',this)">Productos empresas</button>
   </div>
   <div id="config-teorico"></div>
-  <div id="config-productos" style="display:none"></div>`;
+  <div id="config-productos" style="display:none"></div>
+  <div id="config-productosM2" style="display:none"></div>`;
   renderConfigTeorico();
 }
 
 function showConfigTab(t,el){
-  document.getElementById('config-teorico').style.display=t==='teorico'?'':'none';
-  document.getElementById('config-productos').style.display=t==='productos'?'':'none';
+  ['teorico','productos','productosM2'].forEach(k=>{
+    const d=document.getElementById('config-'+k);
+    if(d)d.style.display=k===t?'':'none';
+  });
   document.querySelectorAll('#config .mtab').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
-  if(t==='productos')renderConfigProductos();else renderConfigTeorico();
+  if(t==='productos')renderConfigProductos();
+  else if(t==='productosM2')renderConfigProductosM2();
+  else renderConfigTeorico();
 }
 
 function renderConfigTeorico(){
@@ -2368,6 +2924,63 @@ function renderConfigProductos(){
       }).join('')}</tbody>
     </table></div>
   </div>`;
+}
+
+function renderConfigProductosM2(){
+  const el=document.getElementById('config-productosM2');
+  if(!el)return;
+  const todosSubstocks=Object.values(DB.substocks).flat().filter(s=>s.type==='kg');
+  const lista = DB.productosM2||[];
+  el.innerHTML=`<div class="card">
+    <div class="ctitle">Agregar producto — Despacho empresas</div>
+    <div class="info-box">Estos son productos que salen en el modelo de viandas empresariales y no existen en modelo 1. Los productos del modelo 1 ya están disponibles automáticamente.</div>
+    <div class="frow">
+      <div class="fg"><label>Nombre del producto</label><input type="text" id="m2p-nombre" placeholder="Ej: Empanada de carne - 100g"></div>
+      <div class="fg" style="max-width:140px"><label>Gramaje porción (kg)</label><input type="number" id="m2p-kg" placeholder="0.000" step="0.001"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Sub-stock que descuenta</label>
+        <select id="m2p-substock">${todosSubstocks.map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}</select>
+      </div>
+      <div class="fg"><label>Nombre en PDF <span style="font-size:10px;color:#888">(tal como aparece)</span></label>
+        <input type="text" id="m2p-pdfnombre" placeholder="Ej: Empanada de carne">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addProductoM2()">+ Agregar producto M2</button>
+  </div>
+  <div class="card">
+    <div class="ctitle">Productos exclusivos Despacho empresas</div>
+    ${lista.length===0?'<p style="color:#888;font-size:12px">Sin productos M2 cargados. Los productos del modelo 1 están disponibles automáticamente.</p>'
+    :`<table>
+      <thead><tr><th>Nombre</th><th>Gramaje</th><th>Sub-stock</th><th>Nombre en PDF</th><th></th></tr></thead>
+      <tbody>${lista.map((p,i)=>{
+        const ssDef=findSSdef(p.substock);
+        return \`<tr>
+          <td>\${p.nombre}</td>
+          <td>\${fmt(p.kgPorcion*1000,0)}g</td>
+          <td style="font-size:11px;color:#888">\${ssDef?ssDef.label:p.substock}</td>
+          <td style="font-size:11px;color:#888">\${p.pdfNombre||'—'}</td>
+          <td>\${CU.role==='gerente'?\`<button class="btn-sm" onclick="delProductoM2(\${i})">x</button>\`:''}</td>
+        </tr>\`;
+      }).join('')}</tbody>
+    </table>`}
+  </div>`;
+}
+
+function addProductoM2(){
+  const nombre=document.getElementById('m2p-nombre').value.trim();
+  const kgPorcion=parseFloat(document.getElementById('m2p-kg').value);
+  const substock=document.getElementById('m2p-substock').value;
+  const pdfNombre=document.getElementById('m2p-pdfnombre').value.trim();
+  if(!nombre||isNaN(kgPorcion)||kgPorcion<=0){alert('Completá nombre y gramaje.');return;}
+  if(!DB.productosM2)DB.productosM2=[];
+  DB.productosM2.push({nombre,kgPorcion,substock,pdfNombre,id:Date.now()});
+  saveDB();renderConfigProductosM2();
+}
+
+function delProductoM2(i){
+  if(CU.role!=='gerente')return;
+  DB.productosM2.splice(i,1);saveDB();renderConfigProductosM2();
 }
 
 function addProducto(){
@@ -3149,10 +3762,14 @@ function migrateDB(){
       if(def?.substock&&p.substock!==def.substock&&def.ventaDirecta) p.substock=def.substock;
     });
   }
+  // Agregar productos M2 nuevos que no existen
+  if(!DB.productosM2) DB.productosM2=[];
   // Asegurar que PT keys existan (excepto ventaDirecta que no tienen stock propio)
   DB.productos.forEach(p=>{
     if(!p.ventaDirecta && DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
   });
+  // Asegurar array de despachos empresas
+  if(!DB.despachosM2) DB.despachosM2=[];
   // MIGRACIÓN: aperturas viejas — substock_destino era igual a substock_origen (código viejo)
   // Solo corregir el campo substock_destino para trazabilidad, SIN mover kg
   // (los kg ya fueron usados en armados posteriores con el código viejo)
