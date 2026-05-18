@@ -109,6 +109,16 @@ tr.proc-row:hover td{background:#f8f8f5}
 <body>
 <div class="app" id="app"></div>
 <div id="print-area"></div>
+<!-- MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo) -->
+<div id="confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div id="confirm-msg" style="font-size:14px;color:#1a1a1a;margin-bottom:20px;line-height:1.5"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="confirm-cancel" onclick="resolveConfirm(false)">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-ok" onclick="resolveConfirm(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
 <div class="panel-overlay" id="panel-overlay" onclick="cerrarPanel()"></div>
 <div class="panel-lateral" id="panel-lateral">
   <div class="panel-header">
@@ -404,10 +414,10 @@ let activeModo='limpieza';
 // ============================================================
 function today(){return new Date().toISOString().slice(0,10);}
 function fmt(n,d=2){return(isNaN(n)||n===null||n===undefined)?'0.00':parseFloat(n).toFixed(d);}
-function getSS(k){return DB.ss[k]||0;}
-function setSS(k,v){DB.ss[k]=Math.max(0,parseFloat(v)||0);}
-function getPT(k){return DB.pt[k]||0;}
-function setPT(k,v){DB.pt[k]=Math.max(0,parseInt(v)||0);}
+function getSS(k){const v=DB.ss[k];return v===undefined||v===null?0:v;}
+function setSS(k,v){DB.ss[k]=parseFloat(v)||0;}
+function getPT(k){const v=DB.pt[k];return v===undefined||v===null?0:v;}
+function setPT(k,v){DB.pt[k]=parseInt(v)||0;}
 
 function findSSdef(key){
   for(const[p,list] of Object.entries(DB.substocks)){
@@ -751,12 +761,14 @@ function checkAlertas(){
   });
   Object.values(DB.substocks).flat().forEach(s=>{
     const v=getSS(s.key);
-    if(v<2&&v>0)alerts.push(`Stock bajo: ${s.label} — ${fmtSS(s.key,v)}`);
+    if(v<0)alerts.push(`⛔ Stock NEGATIVO: ${s.label} — ${fmtSS(s.key,v)}`);
+    else if(v<2&&v>0)alerts.push(`Stock bajo: ${s.label} — ${fmtSS(s.key,v)}`);
   });
   Object.entries(DB.pt).forEach(([k,v])=>{
     const prod=DB.productos.find(p=>p.ptKey===k);
     if(prod?.ventaDirecta) return; // no mostrar alerta para ventaDirecta
-    if(v<=5&&v>0)alerts.push(`Stock bajo PT: ${k} — ${v} u.`);
+    if(v<0)alerts.push(`⛔ PT NEGATIVO: ${k} — ${v} u.`);
+    else if(v<=5&&v>0)alerts.push(`Stock bajo PT: ${k} — ${v} u.`);
   });
   ac.innerHTML=alerts.map(a=>`<div class="alert-row">${a}</div>`).join('');
 }
@@ -1739,12 +1751,13 @@ function renderStock(){
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Sub-stocks internos</div>
           ${subs.map(s=>{
             const v=getSS(s.key);
+            const isNeg=v<0;
             const vDisplay=s.type==='u'?Math.round(v):fmt(v,2);
-            return `<div class="substk ${v<=0.5&&v>0?'substk-low':''} ${v===0?'substk-zero':''}" style="background:${v>0?s.color:'#f0efe8'}">
-              <span style="color:${v>0?s.tc:'#888'};font-size:12px">${s.label} <span class="${s.type==='u'?'pill-u':'pill-kg'}">${s.type==='u'?'u.':'kg'}</span></span>
+            return `<div class="substk ${v<=0.5&&v>0?'substk-low':''} ${v<=0&&!isNeg?'substk-zero':''} ${isNeg?'substk-zero':''}" style="background:${isNeg?'#fcebeb':v>0?s.color:'#f0efe8'}">
+              <span style="color:${isNeg?'#a32d2d':v>0?s.tc:'#888'};font-size:12px">${isNeg?'⚠ ':''} ${s.label} <span class="${s.type==='u'?'pill-u':'pill-kg'}">${s.type==='u'?'u.':'kg'}</span></span>
               <div style="display:flex;align-items:center;gap:4px">
-                ${puedeEditar?`<input type="number" value="${vDisplay}" step="${s.type==='u'?'1':'0.01'}" style="width:65px;padding:3px 6px;font-size:11px;text-align:right" onchange="editSS('${s.key}',this.value)">`:
-                `<span style="font-weight:500;color:${v>0?s.tc:'#888'}">${vDisplay}</span>`}
+                ${puedeEditar?`<input type="number" value="${vDisplay}" step="${s.type==='u'?'1':'0.01'}" style="width:65px;padding:3px 6px;font-size:11px;text-align:right;${isNeg?'color:#a32d2d;font-weight:600':''}" onchange="editSS('${s.key}',this.value)">`:
+                `<span style="font-weight:500;color:${isNeg?'#a32d2d':v>0?s.tc:'#888'}">${vDisplay}</span>`}
                 <span style="font-size:10px;color:#888">${s.type==='u'?'u.':'kg'}</span>
               </div>
             </div>`;
@@ -1754,11 +1767,12 @@ function renderStock(){
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#888;margin-bottom:6px">Producto terminado</div>
           ${ptKeys.map(k=>{
             const v=getPT(k);
-            return `<div class="substk ${v<=5&&v>0?'substk-low':''} ${v===0?'substk-zero':''}">
-              <span style="font-size:12px;${v===0?'color:#a32d2d':v<=5?'color:#854f0b':''}">${v===0?'⚠ ':''} ${k}</span>
+            const isNeg=v<0;
+            return `<div class="substk ${v<=5&&v>0?'substk-low':''} ${v<=0&&!isNeg?'substk-zero':''} ${isNeg?'substk-zero':''}">
+              <span style="font-size:12px;${isNeg?'color:#a32d2d;font-weight:500':v===0?'color:#a32d2d':v<=5?'color:#854f0b':''}">${isNeg?'⚠ ':v===0?'⚠ ':''} ${k}</span>
               <div style="display:flex;align-items:center;gap:4px">
-                ${puedeEditar?`<input type="number" value="${v}" style="width:55px;padding:3px 6px;font-size:11px;text-align:right" onchange="editPT('${k}',this.value)">`:
-                `<span style="font-weight:500">${v}</span>`}
+                ${puedeEditar?`<input type="number" value="${v}" style="width:55px;padding:3px 6px;font-size:11px;text-align:right;${isNeg?'color:#a32d2d;font-weight:600':''}" onchange="editPT('${k}',this.value)">`:
+                `<span style="font-weight:500;${isNeg?'color:#a32d2d':''}">${v}</span>`}
                 <span style="font-size:10px;color:#888">u.</span>
               </div>
             </div>`;
@@ -1850,6 +1864,23 @@ function renderVentasHistorial(){
   }).join('');
 }
 
+// ============================================================
+// MODAL DE CONFIRMACIÓN (reemplaza confirm() nativo)
+// ============================================================
+let _confirmResolve=null;
+function showConfirm(msg){
+  return new Promise(resolve=>{
+    _confirmResolve=resolve;
+    const ov=document.getElementById('confirm-overlay');
+    document.getElementById('confirm-msg').textContent=msg;
+    ov.style.display='flex';
+  });
+}
+function resolveConfirm(val){
+  document.getElementById('confirm-overlay').style.display='none';
+  if(_confirmResolve){_confirmResolve(val);_confirmResolve=null;}
+}
+
 function g_borrarGrupo(btn){
   const fecha = btn.dataset.fecha;
   const prod = btn.dataset.prod;
@@ -1858,8 +1889,9 @@ function g_borrarGrupo(btn){
   else delVentasPorFechaProd(fecha, prod);
 }
 
-function delVentasPorFechaProd(fecha, producto){
-  if(!confirm(`¿Borrar todas las ventas de "${producto}" del ${fecha}?`)) return;
+async function delVentasPorFechaProd(fecha, producto){
+  const ok = await showConfirm(`¿Borrar todas las ventas de "${producto}" del ${fecha}?`);
+  if(!ok) return;
   const aEliminar = DB.ventas.filter(v=>v.fecha===fecha && v.producto===producto && !v.batch_id);
   aEliminar.forEach(v=>{
     const p = DB.productos.find(pp=>pp.nombre===v.producto);
@@ -1870,17 +1902,9 @@ function delVentasPorFechaProd(fecha, producto){
   saveDB(); renderVentas(); checkAlertas();
 }
 
-function toggleBatch(bid){
-  const det=document.getElementById('batch-detail-'+bid);
-  const arr=document.getElementById('batch-arrow-'+bid);
-  if(!det) return;
-  const open=det.style.display==='block';
-  det.style.display=open?'none':'block';
-  arr.textContent=open?'▶':'▼';
-}
-
-function delVentaBatch(batchId){
-  if(!confirm('¿Borrar todas las ventas de esta importación?')) return;
+async function delVentaBatch(batchId){
+  const ok = await showConfirm('¿Borrar todas las ventas de esta importación?');
+  if(!ok) return;
   // Revertir stock de cada venta del batch
   DB.ventas.filter(v=>v.batch_id===batchId).forEach(v=>{
     const p=DB.productos.find(pp=>pp.nombre===v.producto);
@@ -1892,6 +1916,15 @@ function delVentaBatch(batchId){
   });
   DB.ventas=DB.ventas.filter(v=>v.batch_id!==batchId);
   saveDB(); renderVentas(); checkAlertas();
+}
+
+function toggleBatch(bid){
+  const det=document.getElementById('batch-detail-'+bid);
+  const arr=document.getElementById('batch-arrow-'+bid);
+  if(!det) return;
+  const open=det.style.display==='block';
+  det.style.display=open?'none':'block';
+  arr.textContent=open?'▶':'▼';
 }
 
 function renderVentas(){
