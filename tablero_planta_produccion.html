@@ -2238,8 +2238,10 @@ async function procesarPDFM2(){
 }
 
 function confirmarDespachoM2(){
-  const {items, fecha} = window._m2ImportData||{};
+  const {items} = window._m2ImportData||{};
   if(!items||items.length===0) return;
+  // Leer la fecha del input en el momento de confirmar (no la del procesamiento)
+  const fecha = document.getElementById('m2-fecha')?.value || today();
   
   const despachoItems = items.map(it=>({
     nombre: it.prod.nombre,
