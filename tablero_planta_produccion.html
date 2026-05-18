@@ -334,6 +334,9 @@ async function loadDBFromSupabase(){
   return null;
 }
 
+// IDs borrados localmente — para que el merge no los restaure desde Supabase
+let _deletedIds=new Set();
+
 // Cola de guardado para evitar condiciones de carrera
 let _saveQueue=Promise.resolve();
 
@@ -395,11 +398,12 @@ async function _doSaveDB(){
 
 function mergeArrayById(remote, local){
   // Une dos arrays, deduplicando por id. En caso de conflicto, local gana.
+  // Los IDs en _deletedIds se ignoran aunque estén en el remoto (para que los borrados persistan).
   const map=new Map();
-  remote.forEach(item=>{if(item.id)map.set(item.id,item);});
+  remote.forEach(item=>{if(item.id&&!_deletedIds.has(String(item.id)))map.set(item.id,item);});
   local.forEach(item=>{if(item.id)map.set(item.id,item);});
-  // Items sin id: agregar ambos (no se puede deduplicar)
-  const sinId=[...remote,...local].filter(i=>!i.id);
+  // Items sin id: solo del local (los remotos sin id podrían ser duplicados)
+  const sinId=local.filter(i=>!i.id);
   return [...map.values(),...sinId];
 }
 
@@ -1897,15 +1901,16 @@ async function delVentasPorFechaProd(fecha, producto){
     const p = DB.productos.find(pp=>pp.nombre===v.producto);
     if(v.ventaDirecta && v.substock) setSS(v.substock, getSS(v.substock)+(v.cantDescuentoSS||0));
     else if(p) setPT(p.ptKey, getPT(p.ptKey)+v.unidades);
+    if(v.id) _deletedIds.add(String(v.id)); // marcar para que el merge no los restaure
   });
   DB.ventas = DB.ventas.filter(v=>!(v.fecha===fecha && v.producto===producto && !v.batch_id));
-  saveDB(); renderVentas(); checkAlertas();
+  await saveDB(); renderVentas(); checkAlertas();
 }
 
 async function delVentaBatch(batchId){
   const ok = await showConfirm('¿Borrar todas las ventas de esta importación?');
   if(!ok) return;
-  // Revertir stock de cada venta del batch
+  // Revertir stock de cada venta del batch y marcar IDs como borrados
   DB.ventas.filter(v=>v.batch_id===batchId).forEach(v=>{
     const p=DB.productos.find(pp=>pp.nombre===v.producto);
     if(v.ventaDirecta && v.substock){
@@ -1913,9 +1918,10 @@ async function delVentaBatch(batchId){
     } else if(p){
       setPT(p.ptKey, getPT(p.ptKey)+v.unidades);
     }
+    if(v.id) _deletedIds.add(String(v.id)); // marcar para que el merge no los restaure
   });
   DB.ventas=DB.ventas.filter(v=>v.batch_id!==batchId);
-  saveDB(); renderVentas(); checkAlertas();
+  await saveDB(); renderVentas(); checkAlertas();
 }
 
 function toggleBatch(bid){
