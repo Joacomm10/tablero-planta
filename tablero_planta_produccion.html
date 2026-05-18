@@ -1484,6 +1484,51 @@ function renderProcesoForm(){
     </div>`;
     // Auto-seleccionar sub-stock del primer producto
     setTimeout(()=>onProductoArmadoChange(),0);
+  } else if(activeModo==='despacho_emp'){
+    const fechaHoy=today();
+    const fechaRef=document.getElementById('pf-fecha-desp')?.value||fechaHoy;
+    const despachosDelDia=(DB.despachosM2||[]).filter(d=>d.fecha===fechaRef);
+    const teoricoPorSS={};
+    despachosDelDia.forEach(d=>{
+      d.items.forEach(it=>{
+        if(!teoricoPorSS[it.substock])teoricoPorSS[it.substock]={kg:0,label:''};
+        teoricoPorSS[it.substock].kg+=it.kgTeorico||0;
+        const ssD=findSSdef(it.substock);
+        teoricoPorSS[it.substock].label=ssD?ssD.label:it.substock;
+      });
+    });
+    const bajasDelDia=(DB.procesos||[]).filter(p=>p.tipo==='baja_empresa'&&p.fecha===fechaRef);
+    const bajasPorSS={};
+    bajasDelDia.forEach(b=>{if(!bajasPorSS[b.substock_origen])bajasPorSS[b.substock_origen]=0;bajasPorSS[b.substock_origen]+=b.kg_in;});
+    const ssDisp=Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&(s.estado==='cocido'||s.estado==='abierto'));
+    const teoricoFilas=Object.entries(teoricoPorSS).map(([ss,d])=>{
+      const bajado=bajasPorSS[ss]||0;const diff=bajado-d.kg;
+      const dc=Math.abs(diff)<0.2?'#085041':Math.abs(diff)<0.5?'#854f0b':'#a32d2d';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid #c7dff5;gap:8px">'
+        +'<span style="flex:1">'+d.label+'</span>'
+        +'<span style="color:#888">Teo: <strong>'+fmt(d.kg,3)+' kg</strong></span>'
+        +(bajado>0?'<span style="color:#085041">Bajado: <strong>'+fmt(bajado,3)+' kg</strong></span>':'')
+        +(bajado>0?'<span style="font-weight:600;color:'+dc+'">'+(diff>=0?'+':'')+fmt(diff,3)+' kg</span>':'<span style="color:#ccc;font-size:11px">pendiente</span>')
+        +'</div>';
+    }).join('');
+    const teoricoHTML=Object.keys(teoricoPorSS).length>0
+      ?'<div style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-bottom:12px"><div style="font-size:11px;font-weight:500;color:#0c447c;margin-bottom:6px">Teórico del despacho '+fechaRef+'</div>'+teoricoFilas+'</div>'
+      :'<div class="info-box">No hay despacho cargado para '+fechaRef+'. Cargá el PDF en Ventas → Despacho empresas primero.</div>';
+    const ssOpts=ssDisp.map(s=>'<option value="'+s.key+'">'+s.label+' — '+fmt(getSS(s.key),2)+' kg'+(teoricoPorSS[s.key]?' (teo: '+fmt(teoricoPorSS[s.key].kg,3)+' kg)':'')+' disponibles</option>').join('');
+    frm.innerHTML='<div class="card">'
+      +'<div class="ctitle">Registrar baja real — Despacho empresas</div>'
+      +'<div class="info-box">Registrá los kg reales bajados de cada sub-stock. Podés hacerlo en varias entradas.</div>'
+      +'<div class="frow"><div class="fg" style="max-width:160px"><label>Fecha del despacho</label>'
+      +'<input type="date" id="pf-fecha-desp" value="'+fechaHoy+'" onchange="renderProcesoForm()"></div></div>'
+      +teoricoHTML
+      +'<div style="font-size:11px;font-weight:500;color:#1a1a1a;margin-bottom:8px">Registrar baja real:</div>'
+      +'<div class="frow">'
+      +'<div class="fg"><label>Sub-stock</label><select id="pf-ss-baja">'+ssOpts+'</select></div>'
+      +'<div class="fg" style="max-width:130px"><label>Kg reales bajados</label><input type="number" id="pf-kg-baja" placeholder="0.00" step="0.01"></div>'
+      +'<div class="fg" style="max-width:200px"><label>Nota (opcional)</label><input type="text" id="pf-nota-baja" placeholder="Ej: quedó algo"></div>'
+      +'</div>'
+      +'<button class="btn btn-primary" onclick="addBajaEmpresa()">+ Registrar baja</button>'
+      +'</div>';
   }
 }
 
@@ -1640,81 +1685,6 @@ function calcArmado(){
   document.getElementById('pf-recorte').value=rec;
 }
 
-  } else if(activeModo==='despacho_emp'){
-    // Modo despacho empresas: el jefe de cocina registra kg reales bajados por sub-stock
-    // Ve el teórico del despacho de esa fecha como referencia
-    const fechaHoy = today();
-    const todosSubstocks = Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&s.estado==='cocido'||s.estado==='abierto');
-    const todosSS = Object.values(DB.substocks).flat().filter(s=>s.type==='kg');
-    
-    // Despachos del día seleccionado (para mostrar teórico)
-    const fechaRef = document.getElementById('pf-fecha-desp')?.value || fechaHoy;
-    const despachosDelDia = (DB.despachosM2||[]).filter(d=>d.fecha===fechaRef);
-    
-    // Calcular teórico acumulado por sub-stock para esa fecha
-    const teoricoPorSS = {};
-    despachosDelDia.forEach(d=>{
-      d.items.forEach(it=>{
-        if(!teoricoPorSS[it.substock]) teoricoPorSS[it.substock]={kg:0,label:''};
-        teoricoPorSS[it.substock].kg += it.kgTeorico||0;
-        const ssDef = findSSdef(it.substock);
-        teoricoPorSS[it.substock].label = ssDef?ssDef.label:it.substock;
-      });
-    });
-    
-    // Bajas ya registradas para esa fecha
-    const bajasDelDia = (DB.procesos||[]).filter(p=>p.tipo==='baja_empresa'&&p.fecha===fechaRef);
-    const bajasPorSS = {};
-    bajasDelDia.forEach(b=>{
-      if(!bajasPorSS[b.substock_origen]) bajasPorSS[b.substock_origen]=0;
-      bajasPorSS[b.substock_origen] += b.kg_in;
-    });
-    
-    // Sub-stocks con stock cocido/abierto disponibles
-    const ssDisponibles = Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&(s.estado==='cocido'||s.estado==='abierto'));
-    
-    const teoricoHTML = Object.keys(teoricoPorSS).length > 0
-      ? `<div style="background:#e6f1fb;border-radius:8px;padding:10px 14px;margin-bottom:12px">
-          <div style="font-size:11px;font-weight:500;color:#0c447c;margin-bottom:6px">Teórico del despacho ${fechaRef}</div>
-          ${Object.entries(teoricoPorSS).map(([ss,d])=>{
-            const bajado = bajasPorSS[ss]||0;
-            const diff = bajado - d.kg;
-            const diffColor = Math.abs(diff)<0.2?'#085041':Math.abs(diff)<0.5?'#854f0b':'#a32d2d';
-            return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid #c7dff5;flex-wrap:wrap;gap:4px">
-              <span style="flex:1">${d.label}</span>
-              <span style="color:#888">Teo: <strong>${fmt(d.kg,3)} kg</strong></span>
-              ${bajado>0?`<span style="color:#085041">Bajado: <strong>${fmt(bajado,3)} kg</strong></span>`:''}
-              ${bajado>0?`<span style="font-weight:600;color:${diffColor}">${diff>=0?'+':''}${fmt(diff,3)} kg</span>`:'<span style="color:#ccc;font-size:11px">pendiente</span>'}
-            </div>`;
-          }).join('')}
-        </div>`
-      : `<div class="info-box">No hay despacho de empresas cargado para ${fechaRef}. Cargá el PDF en la pestaña Ventas → Despacho empresas primero.</div>`;
-
-    frm.innerHTML=`<div class="card">
-      <div class="ctitle">Registrar baja real de sub-stock — Despacho empresas</div>
-      <div class="info-box">Registrá los kg reales que bajaste de cada sub-stock para armar los pedidos. Podés hacerlo en varias entradas.</div>
-      <div class="frow">
-        <div class="fg" style="max-width:160px"><label>Fecha del despacho</label><input type="date" id="pf-fecha-desp" value="${fechaHoy}" onchange="renderProcesoForm()"></div>
-      </div>
-      ${teoricoHTML}
-      <div style="font-size:11px;font-weight:500;color:#1a1a1a;margin-bottom:8px">Registrar baja real:</div>
-      <div class="frow">
-        <div class="fg"><label>Sub-stock que bajás</label>
-          <select id="pf-ss-baja">
-            ${ssDisponibles.map(s=>`<option value="${s.key}">${s.label} — ${fmt(getSS(s.key),2)} kg disponibles${teoricoPorSS[s.key]?' (teo: '+fmt(teoricoPorSS[s.key].kg,3)+' kg)':''}</option>`).join('')}
-          </select>
-        </div>
-        <div class="fg" style="max-width:130px"><label>Kg reales bajados</label>
-          <input type="number" id="pf-kg-baja" placeholder="0.00" step="0.01">
-        </div>
-        <div class="fg" style="max-width:200px"><label>Nota <span style="font-size:10px;color:#888">(opcional)</span></label>
-          <input type="text" id="pf-nota-baja" placeholder="Ej: quedó algo">
-        </div>
-      </div>
-      <button class="btn btn-primary" onclick="addBajaEmpresa()">+ Registrar baja</button>
-    </div>`;
-  }
-}
 
 function renderHistBajasM2(){
   const bajas = (DB.procesos||[]).filter(p=>p.tipo==='baja_empresa').slice().reverse();
@@ -2005,8 +1975,7 @@ const PDF_NOMBRE_MAP = {
 function parsearPDFTexto(textoCompleto){
   // Extrae líneas del PDF y busca productos proteicos con cantidad
   // Formato: "Nombre del plato — xN" y debajo "• Proteína (Xgr)"
-  const lineas = textoCompleto.split('
-').map(l=>l.trim()).filter(Boolean);
+  const lineas = textoCompleto.split('\n').map(l=>l.trim()).filter(Boolean);
   const resultados = {}; // ptKey -> {prod, unidades, gramaje}
   
   let cantActual = 0;
@@ -2930,43 +2899,42 @@ function renderConfigProductosM2(){
   const el=document.getElementById('config-productosM2');
   if(!el)return;
   const todosSubstocks=Object.values(DB.substocks).flat().filter(s=>s.type==='kg');
-  const lista = DB.productosM2||[];
-  el.innerHTML=`<div class="card">
-    <div class="ctitle">Agregar producto — Despacho empresas</div>
-    <div class="info-box">Estos son productos que salen en el modelo de viandas empresariales y no existen en modelo 1. Los productos del modelo 1 ya están disponibles automáticamente.</div>
-    <div class="frow">
-      <div class="fg"><label>Nombre del producto</label><input type="text" id="m2p-nombre" placeholder="Ej: Empanada de carne - 100g"></div>
-      <div class="fg" style="max-width:140px"><label>Gramaje porción (kg)</label><input type="number" id="m2p-kg" placeholder="0.000" step="0.001"></div>
-    </div>
-    <div class="frow">
-      <div class="fg"><label>Sub-stock que descuenta</label>
-        <select id="m2p-substock">${todosSubstocks.map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}</select>
-      </div>
-      <div class="fg"><label>Nombre en PDF <span style="font-size:10px;color:#888">(tal como aparece)</span></label>
-        <input type="text" id="m2p-pdfnombre" placeholder="Ej: Empanada de carne">
-      </div>
-    </div>
-    <button class="btn btn-primary" onclick="addProductoM2()">+ Agregar producto M2</button>
-  </div>
-  <div class="card">
-    <div class="ctitle">Productos exclusivos Despacho empresas</div>
-    ${lista.length===0?'<p style="color:#888;font-size:12px">Sin productos M2 cargados. Los productos del modelo 1 están disponibles automáticamente.</p>'
-    :`<table>
-      <thead><tr><th>Nombre</th><th>Gramaje</th><th>Sub-stock</th><th>Nombre en PDF</th><th></th></tr></thead>
-      <tbody>${lista.map((p,i)=>{
+  const lista=DB.productosM2||[];
+  let listaHTML='<p style="color:#888;font-size:12px">Sin productos M2 cargados. Los productos del modelo 1 están disponibles automáticamente.</p>';
+  if(lista.length>0){
+    listaHTML='<table><thead><tr><th>Nombre</th><th>Gramaje</th><th>Sub-stock</th><th>Nombre en PDF</th><th></th></tr></thead><tbody>'
+      +lista.map((p,i)=>{
         const ssDef=findSSdef(p.substock);
-        return \`<tr>
-          <td>\${p.nombre}</td>
-          <td>\${fmt(p.kgPorcion*1000,0)}g</td>
-          <td style="font-size:11px;color:#888">\${ssDef?ssDef.label:p.substock}</td>
-          <td style="font-size:11px;color:#888">\${p.pdfNombre||'—'}</td>
-          <td>\${CU.role==='gerente'?\`<button class="btn-sm" onclick="delProductoM2(\${i})">x</button>\`:''}</td>
-        </tr>\`;
-      }).join('')}</tbody>
-    </table>`}
-  </div>`;
+        return '<tr>'
+          +'<td>'+p.nombre+'</td>'
+          +'<td>'+fmt(p.kgPorcion*1000,0)+'g</td>'
+          +'<td style="font-size:11px;color:#888">'+(ssDef?ssDef.label:p.substock)+'</td>'
+          +'<td style="font-size:11px;color:#888">'+(p.pdfNombre||'—')+'</td>'
+          +'<td>'+(CU.role==='gerente'?'<button class="btn-sm" onclick="delProductoM2('+i+')">x</button>':'')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  const ssOpts=todosSubstocks.map(s=>'<option value="'+s.key+'">'+s.label+'</option>').join('');
+  el.innerHTML='<div class="card">'
+    +'<div class="ctitle">Agregar producto — Despacho empresas</div>'
+    +'<div class="info-box">Estos son productos exclusivos del modelo de viandas empresariales. Los del modelo 1 ya están disponibles automáticamente.</div>'
+    +'<div class="frow">'
+    +'<div class="fg"><label>Nombre del producto</label><input type="text" id="m2p-nombre" placeholder="Ej: Empanada de carne - 100g"></div>'
+    +'<div class="fg" style="max-width:140px"><label>Gramaje porción (kg)</label><input type="number" id="m2p-kg" placeholder="0.000" step="0.001"></div>'
+    +'</div>'
+    +'<div class="frow">'
+    +'<div class="fg"><label>Sub-stock que descuenta</label><select id="m2p-substock">'+ssOpts+'</select></div>'
+    +'<div class="fg"><label>Nombre en PDF <span style="font-size:10px;color:#888">(tal como aparece)</span></label>'
+    +'<input type="text" id="m2p-pdfnombre" placeholder="Ej: Empanada de carne"></div>'
+    +'</div>'
+    +'<button class="btn btn-primary" onclick="addProductoM2()">+ Agregar producto M2</button>'
+    +'</div>'
+    +'<div class="card">'
+    +'<div class="ctitle">Productos exclusivos Despacho empresas</div>'
+    +listaHTML
+    +'</div>';
 }
-
 function addProductoM2(){
   const nombre=document.getElementById('m2p-nombre').value.trim();
   const kgPorcion=parseFloat(document.getElementById('m2p-kg').value);
