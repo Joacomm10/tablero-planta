@@ -247,7 +247,7 @@ const DEFAULT_PRODUCTOS = [
   {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',       chain:['limpieza','coccion'], ptKey:'Wrap pastor',      stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
   // Solomillo
-  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
+  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza','coccion'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
   {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 200g',   stockNombre:'Tiras de solomillo con vegetales - 200g'},
   {nombre:'Tiras de solomillo - 300g', proteina:'Solomillo', kgPorcion:0.127, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 300g',   stockNombre:'Tiras de solomillo con vegetales - 300g'},
   // Bondiola
@@ -1472,17 +1472,18 @@ function renderProcesoForm(){
     </div>`;
 
   } else if(activeModo==='coccion'){
-    const subsCrudos=subs.filter(s=>(s.estado==='crudo'||s.estado==='lpu')&&s.type==='kg');
-    const subsCocidos=subs.filter(s=>s.estado==='cocido'&&s.type==='kg');
+    // Incluir type='u' para proteínas como solomillo que tienen medallones por unidad
+    const subsCrudos=subs.filter(s=>(s.estado==='crudo'||s.estado==='lpu'));
+    const subsCocidos=subs.filter(s=>s.estado==='cocido');
     if(subsCrudos.length===0||subsCocidos.length===0){
-      frm.innerHTML=`<div class="card"><div class="info-box">Esta proteína no tiene sub-stocks de cocción en kg.</div></div>`;return;
+      frm.innerHTML=`<div class="card"><div class="info-box">Esta proteína no tiene sub-stocks de cocción.</div></div>`;return;
     }
     frm.innerHTML=`<div class="card">
       <div class="info-box">Seleccioná qué sub-stock vas a cocinar y adónde va el resultado.</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen (crudo/LPU)</label>
-          <select id="pf-origen">${subsCrudos.map(s=>`<option value="${s.key}">${s.label} — ${fmt(getSS(s.key),2)} kg</option>`).join('')}</select>
+          <select id="pf-origen" onchange="updateCoccionLabels()">${subsCrudos.map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('')}</select>
         </div>
         <div class="fg"><label>Destino (cocido)</label>
           <select id="pf-destino">${subsCocidos.map(s=>`<option value="${s.key}">${s.label}</option>`).join('')}</select>
@@ -1490,8 +1491,8 @@ function renderProcesoForm(){
         ${respField}
       </div>
       <div class="frow">
-        <div class="fg" style="max-width:110px"><label>Kg a cocinar</label><input type="number" id="pf-kgin" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div>
-        <div class="fg" style="max-width:110px"><label>Kg cocidos resultado</label><input type="number" id="pf-kgout" placeholder="0.00" step="0.01" oninput="calcCoccion()"></div>
+        <div class="fg" style="max-width:110px"><label id="pf-coccion-in-label">Cantidad a cocinar</label><input type="number" id="pf-kgin" placeholder="0" step="0.01" oninput="calcCoccion()"></div>
+        <div class="fg" style="max-width:110px"><label id="pf-coccion-out-label">Resultado cocido</label><input type="number" id="pf-kgout" placeholder="0" step="0.01" oninput="calcCoccion()"></div>
         <div class="fg" style="max-width:190px"><label>Lote <span style="font-size:10px;color:#888">(heredar)</span></label>
           <select id="pf-lote"><option value="">Sin lote</option>${(DB.lotes||[]).filter(l=>l.proteina===activeProt).sort((a,b)=>b.lote_id.localeCompare(a.lote_id)).map(l=>`<option value="${l.lote_id}">${l.lote_id} (${l.fecha_elab})</option>`).join('')}</select>
         </div>
@@ -1499,6 +1500,7 @@ function renderProcesoForm(){
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoCoccion()">+ Registrar cocción</button>
     </div>`;
+    setTimeout(()=>updateCoccionLabels(),0);
 
   } else if(activeModo==='apertura'){
     const subsCocidos=subs.filter(s=>s.estado==='cocido'&&s.type==='kg');
@@ -1870,6 +1872,21 @@ function addProcesoLimpieza(){
   if(loteId)rec.lote_id=loteId;
   DB.procesos.push(rec);
   saveDB();renderProceso();checkAlertas();
+}
+
+function updateCoccionLabels(){
+  const origenSel=document.getElementById('pf-origen');
+  if(!origenSel) return;
+  const ssDef=findSSdef(origenSel.value);
+  const isU=ssDef?.type==='u';
+  const inLabel=document.getElementById('pf-coccion-in-label');
+  const outLabel=document.getElementById('pf-coccion-out-label');
+  const kginInput=document.getElementById('pf-kgin');
+  const kgoutInput=document.getElementById('pf-kgout');
+  if(inLabel) inLabel.textContent=isU?'Unidades a cocinar':'Kg a cocinar';
+  if(outLabel) outLabel.textContent=isU?'Unidades cocidas resultado':'Kg cocidos resultado';
+  if(kginInput){kginInput.step=isU?'1':'0.01';kginInput.placeholder=isU?'0':'0.00';}
+  if(kgoutInput){kgoutInput.step=isU?'1':'0.01';kgoutInput.placeholder=isU?'0':'0.00';}
 }
 
 function addProcesoCoccion(){
