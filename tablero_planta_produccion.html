@@ -1661,11 +1661,11 @@ function filtrarProductosPorOrigen(){
 
 function buildOrigenArmado(subs, prodsProt){
   // Muestra TODOS los sub-stocks cocidos/abiertos de la proteína,
-  // priorizando los abiertos arriba, luego cocidos, luego el resto.
-  // Así aparecen recortes, cubos, tiras, etc. aunque no tengan producto asignado.
-  const abiertos = subs.filter(s=>s.estado==='abierto' && s.type==='kg');
-  const cocidos  = subs.filter(s=>s.estado==='cocido'  && s.type==='kg');
-  const otros    = subs.filter(s=>s.estado!=='abierto' && s.estado!=='cocido' && s.type==='kg');
+  // incluyendo type='u' (medallones, etc.).
+  // Priorizando: abiertos → cocidos → resto.
+  const abiertos = subs.filter(s=>s.estado==='abierto');
+  const cocidos  = subs.filter(s=>s.estado==='cocido');
+  const otros    = subs.filter(s=>s.estado!=='abierto' && s.estado!=='cocido' && s.estado!=='mp' && s.estado!=='lpu');
   const ordered  = [...abiertos, ...cocidos, ...otros];
   return ordered.map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('');
 }
