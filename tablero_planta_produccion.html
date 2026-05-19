@@ -1534,7 +1534,7 @@ function renderProcesoForm(){
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen</label>
-          <select id="pf-origen" onchange="updateArmadoSalidaLabel()">${buildOrigenArmado(subs,prodsProt)}</select>
+          <select id="pf-origen" onchange="updateArmadoSalidaLabel();filtrarProductosPorOrigen()">${buildOrigenArmado(subs,prodsProt)}</select>
         </div>
         <div class="fg"><label>Producto a generar</label>
           <input type="text" list="pf-producto-list" id="pf-producto" class="combo-input" autocomplete="off"
@@ -1557,8 +1557,8 @@ function renderProcesoForm(){
       <div id="pf-prev" style="font-size:11px;color:#888;margin-bottom:10px;min-height:16px"></div>
       <button class="btn btn-primary" onclick="addProcesoArmado()">+ Registrar armado</button>
     </div>`;
-    // Auto-seleccionar sub-stock del primer producto
-    setTimeout(()=>onProductoArmadoChange(),0);
+    // Auto-seleccionar sub-stock del primer producto y filtrar productos
+    setTimeout(()=>{filtrarProductosPorOrigen();onProductoArmadoChange();},0);
   } else if(activeModo==='despacho_emp'){
     const fechaHoy=today();
     const fechaRef=document.getElementById('pf-fecha-desp')?.value||fechaHoy;
@@ -1625,30 +1625,49 @@ function calcCoccion(){
   prev.innerHTML=`Rendimiento: <strong>${ki>0?(ko/ki*100).toFixed(1):'-'}%</strong>${teo?.coccion_pct?` | Teórico: <strong>${teo.coccion_pct}%</strong>`:''} | Merma: <strong>${fmt(ki-ko,2)} kg</strong>`;
 }
 
+// Sub-stocks que solo pueden generar ciertos productos (restricciones)
+// Si un sub-stock no está aquí, permite todos los productos de la proteína
+const SS_RESTRICCIONES = {
+  // Recortes de pechuga: solo tiras y cubos (no pechugas enteras)
+  'pechuga_recortes_cocido':         ss=>ss.substock==='pechuga_tiras_cocido'||ss.substock==='pechuga_cubos_cocido',
+  'pechuga_recortes_cocido_abierto': ss=>ss.substock==='pechuga_tiras_cocido'||ss.substock==='pechuga_cubos_cocido',
+  // Recortes tapa: solo goulash y pulled (no brisket entero)
+  'tapa_recortes_cocido':            ss=>ss.substock==='tapa_recortes_cocido',
+  'tapa_recortes_cocido_abierto':    ss=>ss.substock==='tapa_recortes_cocido',
+};
+
+function filtrarProductosPorOrigen(){
+  const origenSel = document.getElementById('pf-origen');
+  const dl = document.getElementById('pf-producto-list');
+  const input = document.getElementById('pf-producto');
+  if(!origenSel||!dl) return;
+
+  const origenKey = origenSel.value;
+  const restriccion = SS_RESTRICCIONES[origenKey];
+
+  // Obtener todos los productos de la proteína activa
+  const prodsProt = DB.productos.filter(p=>p.proteina===activeProt);
+  const filtrados = restriccion ? prodsProt.filter(restriccion) : prodsProt;
+
+  // Rebuildar el datalist
+  dl.innerHTML = filtrados.map(p=>`<option value="${p.ptKey}">${p.nombre} — ${fmt(p.kgPorcion,3)} kg porción</option>`).join('');
+
+  // Si el producto seleccionado ya no es válido, limpiarlo
+  if(input && input.value){
+    const valido = filtrados.some(p=>p.ptKey===input.value||p.nombre===input.value);
+    if(!valido){ input.value=''; input.dataset.value=''; }
+  }
+}
+
 function buildOrigenArmado(subs, prodsProt){
-  // Construye las opciones del selector de origen en Armado.
-  // Para cada producto de la proteína, el origen válido es:
-  //   1. El _abierto del substock del producto (si existe y tiene stock)
-  //   2. El substock cerrado del producto
-  // Se muestran todos los origenes posibles de todos los productos, sin duplicar.
-  const seen=new Set();
-  const options=[];
-  // Agregar _abiertos primero (orden de prioridad)
-  prodsProt.forEach(p=>{
-    const abiertoKey=p.substock+'_abierto';
-    if(!seen.has(abiertoKey)){
-      const ssDef=subs.find(s=>s.key===abiertoKey);
-      if(ssDef){seen.add(abiertoKey);options.push(ssDef);}
-    }
-  });
-  // Luego cerrados (cocido/crudo/lpu)
-  prodsProt.forEach(p=>{
-    if(!seen.has(p.substock)){
-      const ssDef=subs.find(s=>s.key===p.substock);
-      if(ssDef){seen.add(p.substock);options.push(ssDef);}
-    }
-  });
-  return options.map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('');
+  // Muestra TODOS los sub-stocks cocidos/abiertos de la proteína,
+  // priorizando los abiertos arriba, luego cocidos, luego el resto.
+  // Así aparecen recortes, cubos, tiras, etc. aunque no tengan producto asignado.
+  const abiertos = subs.filter(s=>s.estado==='abierto' && s.type==='kg');
+  const cocidos  = subs.filter(s=>s.estado==='cocido'  && s.type==='kg');
+  const otros    = subs.filter(s=>s.estado!=='abierto' && s.estado!=='cocido' && s.type==='kg');
+  const ordered  = [...abiertos, ...cocidos, ...otros];
+  return ordered.map(s=>`<option value="${s.key}">${s.label} — ${fmtSS(s.key,getSS(s.key))}</option>`).join('');
 }
 
 function updateArmadoSalidaLabel(){
