@@ -1932,7 +1932,7 @@ function addProcesoArmado(){
   saveDB();renderProceso();checkAlertas();
 }
 
-function delProceso(i){
+async function delProceso(i){
   if(CU.role!=='gerente'){alert('Solo el gerente puede eliminar.');return;}
   const p=DB.procesos[i];
   if(p.tipo==='limpieza'){
@@ -1958,7 +1958,10 @@ function delProceso(i){
     // Revertir: devolver kg al sub-stock
     setSS(p.substock_origen, getSS(p.substock_origen)+p.kg_in);
   }
-  DB.procesos.splice(i,1);saveDB();renderProceso();checkAlertas();
+  // Marcar el ID como borrado para que el merge no lo restaure desde Supabase
+  if(p.id) _deletedIds.add(String(p.id));
+  DB.procesos.splice(i,1);
+  await saveDB();renderProceso();checkAlertas();
 }
 
 // ============================================================
