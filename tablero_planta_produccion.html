@@ -4038,12 +4038,16 @@ loadDBFromSupabase().then(data=>{
   if(data){
     DB=data;
   }
+  // SIEMPRE pisar substocks y productos con la versión del código
+  // (son definiciones estructurales, no datos operativos)
+  DB.substocks = JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS));
+  DB.productos  = JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
+  // Limpiar ss keys que ya no existen en DEFAULT_SUBSTOCKS
+  const validSSKeys = new Set(Object.values(DEFAULT_SUBSTOCKS).flat().map(s=>s.key));
+  Object.keys(DB.ss||{}).forEach(k=>{ if(!validSSKeys.has(k)) delete DB.ss[k]; });
   migrateDB();
-  // Si hubo migraciones, guardar directo en Supabase (sin merge) para persistir los cambios
-  if(DB._needsDirectSave){
-    delete DB._needsDirectSave;
-    saveDBDirect(DB).then(()=>console.log('Migración guardada directo en Supabase'));
-  }
+  // Guardar directo para persistir la limpieza en Supabase
+  saveDBDirect(DB).then(()=>console.log('Estructura actualizada en Supabase'));
   // Restaurar la app
   document.getElementById('app').innerHTML=`
     <div id="login-screen">
