@@ -3572,9 +3572,18 @@ function renderAdmin(){
     <div style="margin-top:10px;font-size:11px;color:#888">${DB.ingresos.length} ingresos · ${DB.procesos.length} procesos · ${DB.ventas.length} ventas · ${DB.calidad.length} calidad · ${DB.users.length} usuarios</div>
   </div>
   <div class="card">
-    <div class="ctitle" style="color:#a32d2d">Zona de riesgo</div>
-    <button class="btn btn-danger" onclick="resetDB()">Resetear base de datos</button>
-    <div style="font-size:11px;color:#888;margin-top:8px">Elimina todos los registros históricos. No se puede deshacer.</div>
+    <div class="ctitle" style="color:#a32d2d">⚠️ Zona de riesgo</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <button class="btn btn-danger" onclick="resetDatosOperativos()">🗑️ Resetear datos operativos</button>
+        <div style="font-size:11px;color:#888;margin-top:4px">Borra: stocks, procesos, ventas, ingresos, despachos M2, lotes, calidad.<br>
+        <strong>Conserva:</strong> usuarios, productos, sub-stocks, rendimientos teóricos, empleados, proveedores.</div>
+      </div>
+      <div>
+        <button class="btn btn-danger" onclick="resetDB()">💥 Resetear TODO</button>
+        <div style="font-size:11px;color:#888;margin-top:4px">Borra absolutamente todo. No se puede deshacer.</div>
+      </div>
+    </div>
   </div>
   </div>
   <div id="admin-lotes" style="display:none"></div>`;
@@ -3692,14 +3701,58 @@ function delEmpleado(i){
   DB.empleados.splice(i,1);saveDB();renderAdmin();
 }
 
-function resetDB(){
-  if(!confirm('¿Seguro? No se puede deshacer.'))return;
-  const{users,teorico,substocks,productos}=DB;
-  DB={ingresos:[],procesos:[],ventas:[],calidad:[],
-      ss:JSON.parse(JSON.stringify(DEFAULT_SS)),
-      pt:JSON.parse(JSON.stringify(DEFAULT_PT)),
-      users,teorico,substocks,productos};
-  saveDB();alert('Base reseteada.');renderTab('resumen');
+async function resetDatosOperativos(){
+  const ok = await showConfirm(
+    '¿Resetear todos los datos operativos?\n\nSe borrarán: stocks, procesos, ventas, ingresos, despachos M2, lotes, calidad.\n\nSe conservarán: usuarios, productos, sub-stocks, rendimientos teóricos, empleados, proveedores.\n\nEsta acción NO se puede deshacer.'
+  );
+  if(!ok) return;
+  const ok2 = await showConfirm('Última confirmación: ¿estás seguro? Se perderán todos los registros históricos.');
+  if(!ok2) return;
+
+  // Preservar configuración
+  const {users, teorico, substocks, productos, productosM2, empleados, proveedores} = DB;
+
+  // Resetear todo lo operativo
+  DB = {
+    ingresos: [],
+    procesos: [],
+    ventas: [],
+    calidad: [],
+    lotes: [],
+    despachosM2: [],
+    caidas: [],
+    devoluciones: [],
+    consumoInterno: [],
+    ss: JSON.parse(JSON.stringify(DEFAULT_SS)),
+    pt: JSON.parse(JSON.stringify(DEFAULT_PT)),
+    // Configuración preservada
+    users,
+    teorico,
+    substocks,
+    productos,
+    productosM2: productosM2||[],
+    empleados: empleados||[],
+    proveedores: proveedores||[],
+  };
+
+  // Limpiar _deletedIds también para empezar limpio
+  _deletedIds = new Set();
+
+  await saveDB();
+  alert('✅ Datos operativos reseteados. La configuración fue preservada.');
+  renderTab('resumen');
+}
+
+async function resetDB(){
+  const ok = await showConfirm('¿Resetear ABSOLUTAMENTE TODO? Se perderá toda la configuración también.');
+  if(!ok) return;
+  const ok2 = await showConfirm('Última confirmación: esto borra usuarios, productos, sub-stocks y todos los datos. ¿Continuás?');
+  if(!ok2) return;
+  DB = defaultDB();
+  _deletedIds = new Set();
+  await saveDB();
+  alert('Base reseteada completamente.');
+  renderTab('resumen');
 }
 
 function exportarJSON(){
