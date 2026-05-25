@@ -3913,13 +3913,37 @@ function migrateDB(){
       });
     }
   });
-  // MIGRACIÓN PECHUGA: eliminar sub-stocks viejos de unidades que ya no se usan
+  // MIGRACIÓN PECHUGA: eliminar sub-stocks viejos que ya no se usan
   const pechugaObsoletos=['pechuga_medallon_170_crudo','pechuga_medallon_250_crudo',
     'pechuga_medallon_170_cocido','pechuga_medallon_250_cocido','pechuga_medallon_lpu',
-    'pechuga_medallon_lpu_cocido','pechuga_medallon_lpu_cocido_abierto'];
+    'pechuga_medallon_lpu_cocido','pechuga_medallon_lpu_cocido_abierto',
+    'pechuga_cubos_crudo','pechuga_tiras_crudo',
+    'pechuga_cubos_cocido','pechuga_tiras_cocido',
+    'pechuga_cubos_cocido_abierto','pechuga_tiras_cocido_abierto'];
   if(DB.substocks&&DB.substocks['Pechuga']){
     DB.substocks['Pechuga']=DB.substocks['Pechuga'].filter(s=>!pechugaObsoletos.includes(s.key));
   }
+  // Limpiar ss keys obsoletos de pechuga (poner a 0 y sacar de la vista)
+  pechugaObsoletos.forEach(k=>{ delete DB.ss[k]; });
+  
+  // MIGRACIÓN GLOBAL: eliminar sub-stocks que no están en DEFAULT_SUBSTOCKS
+  // (limpia cualquier key huérfano que quedó de versiones anteriores)
+  const validSSKeys = new Set(Object.values(DEFAULT_SUBSTOCKS).flat().map(s=>s.key));
+  Object.keys(DB.ss).forEach(k=>{ if(!validSSKeys.has(k)) delete DB.ss[k]; });
+  
+  // MIGRACIÓN SUBSTOCKS: reemplazar definición de proteína si cambió
+  // (fuerza la versión actual del código sobre la guardada en Supabase)
+  const proteinsToForce = ['Pechuga','Tapa de asado','Solomillo','Bondiola','Cuadril','Roast Beef','Peceto'];
+  proteinsToForce.forEach(prot=>{
+    if(DEFAULT_SUBSTOCKS[prot]) DB.substocks[prot]=JSON.parse(JSON.stringify(DEFAULT_SUBSTOCKS[prot]));
+  });
+  
+  // MIGRACIÓN PRODUCTOS: forzar DEFAULT_PRODUCTOS (actualiza substocks, chains, etc.)
+  DB.productos = JSON.parse(JSON.stringify(DEFAULT_PRODUCTOS));
+  // Asegurar PT keys para nuevos productos
+  DB.productos.forEach(p=>{
+    if(!p.ventaDirecta && DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
+  });
   if(!DB.teorico) DB.teorico=JSON.parse(JSON.stringify(DEFAULT_TEORICO));
   // Agregar proteínas nuevas al teórico si no existen
   Object.entries(DEFAULT_TEORICO).forEach(([prot,vals])=>{
