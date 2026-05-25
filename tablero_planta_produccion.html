@@ -4013,6 +4013,8 @@ function migrateDB(){
   });
   // Asegurar array de despachos empresas
   if(!DB.despachosM2) DB.despachosM2=[];
+  // Flag para saber si hubo migraciones que requieren guardar directo
+  DB._needsDirectSave = true;
   // MIGRACIÓN: aperturas viejas — substock_destino era igual a substock_origen (código viejo)
   // Solo corregir el campo substock_destino para trazabilidad, SIN mover kg
   // (los kg ya fueron usados en armados posteriores con el código viejo)
@@ -4037,6 +4039,11 @@ loadDBFromSupabase().then(data=>{
     DB=data;
   }
   migrateDB();
+  // Si hubo migraciones, guardar directo en Supabase (sin merge) para persistir los cambios
+  if(DB._needsDirectSave){
+    delete DB._needsDirectSave;
+    saveDBDirect(DB).then(()=>console.log('Migración guardada directo en Supabase'));
+  }
   // Restaurar la app
   document.getElementById('app').innerHTML=`
     <div id="login-screen">
