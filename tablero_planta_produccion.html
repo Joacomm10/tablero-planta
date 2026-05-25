@@ -207,10 +207,16 @@ const DEFAULT_SUBSTOCKS = {
     {key:'cuadril_tiras_cocido_abierto',label:'Tiras cocidas (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Roast Beef': [
-    {key:'roastbeef_mp',          label:'Roast Beef (entero)',         estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
-    {key:'roastbeef_lpu',         label:'Roast Beef LPU (limpio)',     estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
-    {key:'roastbeef_lpu_cocido',  label:'Roast Beef LPU cocido',       estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'roastbeef_mp',          label:'Roast Beef (entero)',               estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
+    {key:'roastbeef_lpu',         label:'Roast Beef LPU (limpio)',           estado:'lpu',   type:'kg', color:'#eeedfe', tc:'#3c3489'},
+    {key:'roastbeef_lpu_cocido',  label:'Roast Beef LPU cocido (cerrado)',   estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
     {key:'roastbeef_lpu_cocido_abierto',label:'Roast Beef LPU cocido (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
+  ],
+  'Peceto': [
+    {key:'peceto_mp',             label:'Peceto (entero)',                   estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
+    {key:'peceto_milanesa_lpu',   label:'Milanesa LPU (limpia)',             estado:'lpu',   type:'kg', color:'#e6f1fb', tc:'#0c447c'},
+    {key:'peceto_recortes',       label:'Recortes peceto',                   estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
+    {key:'peceto_milanesa_final', label:'Milanesa apanada (kg)',             estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
   ]
 };
 
@@ -220,80 +226,108 @@ const DEFAULT_SUBSTOCKS = {
 // chain = cadena de procesos que arrastra para calcular kgLPU real
 //   'mp->lpu->crudo->cocido' etc.
 const DEFAULT_PRODUCTOS = [
-  // Tapa de asado
-  {nombre:'Ternera braseada - 150g',   proteina:'Tapa de asado', kgPorcion:0.150, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 150g',    stockNombre:'Ternera braseada al horno - 150g'},
-  {nombre:'Ternera braseada - 200g',   proteina:'Tapa de asado', kgPorcion:0.200, substock:'tapa_brisket_cocido',    chain:['limpieza','coccion'], ptKey:'Ternera braseada 200g',    stockNombre:'Ternera braseada al horno - 200g'},
-  {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Goulash 200g',             stockNombre:'Goulash - 200g'},
-  {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Pulled Beef 250g',         stockNombre:'Pulled Beef - 250g'},
-  // Pechuga - medallones
-  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
-  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
-  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga tomillo 170g',  stockNombre:'Pechuga con tomillo - 170g'},
-  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga tomillo 250g',  stockNombre:'Pechuga con tomillo - 250g'},
-  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga provenzal 170g',stockNombre:'Pechuga provenzal - 170g'},
-  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido', chain:['limpieza','coccion'], ptKey:'Pechuga provenzal 250g',stockNombre:'Pechuga Provenzal - 250g'},
-  // Pechuga - cubos y tiras
-  {nombre:'Curry de pollo - 200g',     proteina:'Pechuga', kgPorcion:0.110, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 200g',       stockNombre:'Curry de pollo - 200g'},
-  {nombre:'Curry de pollo - 300g',     proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Curry pollo 300g',       stockNombre:'Curry de pollo - 300g'},
-  {nombre:'Pollo teriyaki - 200g',     proteina:'Pechuga', kgPorcion:0.088, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 200g',    stockNombre:'Pollo teriyaki - 200g'},
-  {nombre:'Pollo teriyaki - 300g',     proteina:'Pechuga', kgPorcion:0.131, substock:'pechuga_cubos_cocido',  chain:['limpieza','coccion'], ptKey:'Pollo teriyaki 300g',    stockNombre:'Pollo teriyaki - 300g'},
-  {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 200g', stockNombre:'Tiras de pollo con vegetales - 200g'},
-  {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras pollo veg 300g', stockNombre:'Tiras de pollo con vegetales - 300g'},
-  // Wraps y ensaladas - armado en el momento, descuenta directo del sub-stock
-  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap César',       stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Ensalada César',   stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido',  chain:['limpieza','coccion'], ptKey:'Wrap italiano',    stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap criollo',     stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido',   chain:['limpieza','coccion'], ptKey:'Wrap mediterráneo',stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled',       chain:['limpieza','coccion'], ptKey:'Wrap pastor',      stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
-  // Solomillo
-  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_cocido', chain:['limpieza','coccion'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
-  {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 200g',   stockNombre:'Tiras de solomillo con vegetales - 200g'},
-  {nombre:'Tiras de solomillo - 300g', proteina:'Solomillo', kgPorcion:0.127, substock:'solomillo_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras solomillo 300g',   stockNombre:'Tiras de solomillo con vegetales - 300g'},
-  // Bondiola
-  {nombre:'Bondiola laqueada - 250g',  proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_medallon', chain:['limpieza','coccion'], ptKey:'Bondiola laqueada 250g', stockNombre:'Bondiola laqueada - 250g'},
-  {nombre:'Pulled Pork - 250g',        proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_pulled',   chain:['limpieza','coccion'], ptKey:'Pulled Pork 250g',       stockNombre:'Pulled Pork - 250g'},
-  // Lomo
-  {nombre:'Lomo al tomillo - 180g',    proteina:'Lomo', kgPorcion:0.180, substock:'lomo_medallon_180_crudo', chain:['limpieza'], ptKey:'Lomo al tomillo 180g',               stockNombre:'Medallón de lomo con tomillo - 150g'},
-  // Cuadril
-  {nombre:'Tiras de cuadril con hongos - 170g',    proteina:'Cuadril', kgPorcion:0.181, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril hongos 170g', stockNombre:'Tiras de res con hongos - 170g'},
-  {nombre:'Tiras de cuadril con vegetales - 200g', proteina:'Cuadril', kgPorcion:0.089, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 200g',    stockNombre:'Tiras de cuadril con vegetales - 200g'},
-  {nombre:'Tiras de cuadril con vegetales - 300g', proteina:'Cuadril', kgPorcion:0.133, substock:'cuadril_tiras_cocido', chain:['limpieza','coccion'], ptKey:'Tiras cuadril veg 300g',    stockNombre:'Tiras de cuadril con vegetales - 300g'},
+  // Tapa de asado — armado solo desde abierto
+  {nombre:'Ternera braseada - 150g',   proteina:'Tapa de asado', kgPorcion:0.150, substock:'tapa_brisket_cocido_abierto',    chain:['limpieza','coccion','apertura'], ptKey:'Ternera braseada 150g',    stockNombre:'Ternera braseada al horno - 150g'},
+  {nombre:'Ternera braseada - 200g',   proteina:'Tapa de asado', kgPorcion:0.200, substock:'tapa_brisket_cocido_abierto',    chain:['limpieza','coccion','apertura'], ptKey:'Ternera braseada 200g',    stockNombre:'Ternera braseada al horno - 200g'},
+  {nombre:'Goulash - 200g',            proteina:'Tapa de asado', kgPorcion:0.164, substock:'tapa_recortes_cocido_abierto',   chain:['limpieza','coccion','apertura'], ptKey:'Goulash 200g',             stockNombre:'Goulash - 200g'},
+  {nombre:'Pulled Beef - 250g',        proteina:'Tapa de asado', kgPorcion:0.263, substock:'tapa_recortes_cocido_abierto',   chain:['limpieza','coccion','apertura'], ptKey:'Pulled Beef 250g',         stockNombre:'Pulled Beef - 250g'},
+  // Pechuga — armado solo desde abierto
+  {nombre:'Pechuga con limón - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga limón 170g',    stockNombre:'Pechuga con limón - 170g'},
+  {nombre:'Pechuga con limón - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga limón 250g',    stockNombre:'Pechuga con limón - 250g'},
+  {nombre:'Pechuga con tomillo - 170g',proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga tomillo 170g',  stockNombre:'Pechuga con tomillo - 170g'},
+  {nombre:'Pechuga con tomillo - 250g',proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga tomillo 250g',  stockNombre:'Pechuga con tomillo - 250g'},
+  {nombre:'Pechuga provenzal - 170g',  proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga provenzal 170g',stockNombre:'Pechuga provenzal - 170g'},
+  {nombre:'Pechuga provenzal - 250g',  proteina:'Pechuga', kgPorcion:0.250, substock:'pechuga_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pechuga provenzal 250g',stockNombre:'Pechuga Provenzal - 250g'},
+  // Pechuga - recortes abiertos (curry, teriyaki, tiras, tarta)
+  {nombre:'Curry de pollo - 200g',     proteina:'Pechuga', kgPorcion:0.110, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Curry pollo 200g',       stockNombre:'Curry de pollo - 200g'},
+  {nombre:'Curry de pollo - 300g',     proteina:'Pechuga', kgPorcion:0.170, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Curry pollo 300g',       stockNombre:'Curry de pollo - 300g'},
+  {nombre:'Pollo teriyaki - 200g',     proteina:'Pechuga', kgPorcion:0.088, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pollo teriyaki 200g',    stockNombre:'Pollo teriyaki - 200g'},
+  {nombre:'Pollo teriyaki - 300g',     proteina:'Pechuga', kgPorcion:0.131, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Pollo teriyaki 300g',    stockNombre:'Pollo teriyaki - 300g'},
+  {nombre:'Tiras de pollo con vegetales - 200g',proteina:'Pechuga', kgPorcion:0.085, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras pollo veg 200g', stockNombre:'Tiras de pollo con vegetales - 200g'},
+  {nombre:'Tiras de pollo con vegetales - 300g',proteina:'Pechuga', kgPorcion:0.127, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras pollo veg 300g', stockNombre:'Tiras de pollo con vegetales - 300g'},
+  {nombre:'Tarta de pollo y puerro - 250g',     proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tarta pollo puerro 250g', stockNombre:'Tarta de pollo y puerro - 250g'},
+  // Wraps y ensaladas — ventaDirecta desde abierto
+  {nombre:'Wrap César',                proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido_abierto',  chain:['limpieza','coccion','apertura'], ptKey:'Wrap César',       stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Ensalada César',            proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido_abierto',  chain:['limpieza','coccion','apertura'], ptKey:'Ensalada César',   stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap italiano',             proteina:'Pechuga', kgPorcion:0.100, substock:'pechuga_lpu_cocido_abierto',  chain:['limpieza','coccion','apertura'], ptKey:'Wrap italiano',    stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap criollo',              proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Wrap criollo',     stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap mediterráneo',         proteina:'Tapa de asado', kgPorcion:0.100, substock:'tapa_recortes_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Wrap mediterráneo',stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  {nombre:'Wrap pastor',               proteina:'Bondiola', kgPorcion:0.100, substock:'bondiola_cocida_pulled_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Wrap pastor',      stockNombre:'', ventaDirecta:true, cantVentaDirecta:0.100},
+  // Solomillo — armado desde abierto
+  {nombre:'Solomillo hawaiano - 170g', proteina:'Solomillo', kgPorcion:0.170, substock:'solomillo_medallon_170_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Solomillo hawaiano 170g', stockNombre:'Solomillo hawaiano - 170g'},
+  {nombre:'Tiras de solomillo - 200g', proteina:'Solomillo', kgPorcion:0.085, substock:'solomillo_tiras_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras solomillo 200g',   stockNombre:'Tiras de solomillo con vegetales - 200g'},
+  {nombre:'Tiras de solomillo - 300g', proteina:'Solomillo', kgPorcion:0.127, substock:'solomillo_tiras_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras solomillo 300g',   stockNombre:'Tiras de solomillo con vegetales - 300g'},
+  // Bondiola — armado desde abierto
+  {nombre:'Bondiola laqueada - 250g',  proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_medallon_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Bondiola laqueada 250g', stockNombre:'Bondiola laqueada - 250g'},
+  {nombre:'Pulled Pork - 250g',        proteina:'Bondiola', kgPorcion:0.250, substock:'bondiola_cocida_pulled_abierto',   chain:['limpieza','coccion','apertura'], ptKey:'Pulled Pork 250g',       stockNombre:'Pulled Pork - 250g'},
+  // Lomo — sin apertura, armado desde cocido directo
+  {nombre:'Lomo al tomillo - 180g',    proteina:'Lomo', kgPorcion:0.180, substock:'lomo_medallon_180_crudo', chain:['limpieza'], ptKey:'Lomo al tomillo 180g', stockNombre:'Medallón de lomo con tomillo - 150g'},
+  // Cuadril — armado desde abierto
+  {nombre:'Tiras de cuadril con hongos - 170g',    proteina:'Cuadril', kgPorcion:0.181, substock:'cuadril_tiras_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras cuadril hongos 170g', stockNombre:'Tiras de res con hongos - 170g'},
+  {nombre:'Tiras de cuadril con vegetales - 200g', proteina:'Cuadril', kgPorcion:0.089, substock:'cuadril_tiras_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras cuadril veg 200g',    stockNombre:'Tiras de cuadril con vegetales - 200g'},
+  {nombre:'Tiras de cuadril con vegetales - 300g', proteina:'Cuadril', kgPorcion:0.133, substock:'cuadril_tiras_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Tiras cuadril veg 300g',    stockNombre:'Tiras de cuadril con vegetales - 300g'},
+  // Roast Beef — armado desde abierto
+  {nombre:'Roast Beef - 200g',         proteina:'Roast Beef', kgPorcion:0.200, substock:'roastbeef_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Roast Beef 200g', stockNombre:'Roast Beef - 200g'},
+  // Peceto — limpieza → armado directo en kg (sin cocción, sin apertura)
+  {nombre:'Milanesa Ternera',          proteina:'Peceto', kgPorcion:null, substock:'peceto_milanesa_lpu', chain:['limpieza'], ptKey:'Milanesa Ternera', stockNombre:'Milanesa Ternera', modoKg:true},
 ];
 
 // Stock inicial
 const DEFAULT_SS = {
+  // Tapa de asado
   tapa_mp:0, tapa_brisket_crudo:0, tapa_recortes_crudo:0,
-  tapa_brisket_cocido:0, tapa_recortes_cocido:0,
-  pechuga_mp:0,
-  pechuga_lpu:0, pechuga_recortes:0,
-  pechuga_cubos_crudo:0, pechuga_tiras_crudo:0,
+  tapa_brisket_cocido:0, tapa_brisket_cocido_abierto:0,
+  tapa_recortes_cocido:0, tapa_recortes_cocido_abierto:0,
+  // Pechuga
+  pechuga_mp:0, pechuga_lpu:0, pechuga_recortes:0,
   pechuga_lpu_cocido:0, pechuga_lpu_cocido_abierto:0,
   pechuga_recortes_cocido:0, pechuga_recortes_cocido_abierto:0,
-  pechuga_cubos_cocido:0, pechuga_tiras_cocido:0,
+  // Solomillo
   solomillo_mp:0, solomillo_medallon_170_crudo:0, solomillo_tiras_crudo:0,
-  solomillo_medallon_170_cocido:0, solomillo_tiras_cocido:0,
-  bondiola_mp:0, bondiola_lpu:0, bondiola_cocida_medallon:0, bondiola_cocida_pulled:0,
+  solomillo_medallon_170_cocido:0, solomillo_medallon_170_abierto:0,
+  solomillo_tiras_cocido:0, solomillo_tiras_cocido_abierto:0,
+  // Bondiola
+  bondiola_mp:0, bondiola_lpu:0,
+  bondiola_cocida_medallon:0, bondiola_cocida_medallon_abierto:0,
+  bondiola_cocida_pulled:0, bondiola_cocida_pulled_abierto:0,
+  // Lomo
   lomo_mp:0, lomo_medallon_180_crudo:0, lomo_recortes:0,
-  cuadril_mp:0, cuadril_tiras_crudo:0, cuadril_tiras_cocido:0,
-  roastbeef_mp:0, roastbeef_lpu:0, roastbeef_lpu_cocido:0
+  // Cuadril
+  cuadril_mp:0, cuadril_tiras_crudo:0,
+  cuadril_tiras_cocido:0, cuadril_tiras_cocido_abierto:0,
+  // Roast Beef
+  roastbeef_mp:0, roastbeef_lpu:0,
+  roastbeef_lpu_cocido:0, roastbeef_lpu_cocido_abierto:0,
+  // Peceto
+  peceto_mp:0, peceto_milanesa_lpu:0, peceto_recortes:0, peceto_milanesa_final:0,
 };
 
 const DEFAULT_PT = {
+  // Tapa de asado
   'Ternera braseada 150g':0,'Ternera braseada 200g':0,
   'Goulash 200g':0,'Pulled Beef 250g':0,'Wrap criollo':0,'Wrap mediterráneo':0,
+  // Pechuga
   'Pechuga limón 170g':0,'Pechuga limón 250g':0,
   'Pechuga tomillo 170g':0,'Pechuga tomillo 250g':0,
   'Pechuga provenzal 170g':0,'Pechuga provenzal 250g':0,
   'Curry pollo 200g':0,'Curry pollo 300g':0,
   'Pollo teriyaki 200g':0,'Pollo teriyaki 300g':0,
   'Tiras pollo veg 200g':0,'Tiras pollo veg 300g':0,
+  'Tarta pollo puerro 250g':0,
   'Wrap César':0,'Ensalada César':0,'Wrap italiano':0,
+  // Solomillo
   'Solomillo hawaiano 170g':0,
   'Tiras solomillo 200g':0,'Tiras solomillo 300g':0,
+  // Bondiola
   'Bondiola laqueada 250g':0,'Pulled Pork 250g':0,'Wrap pastor':0,
+  // Lomo
   'Lomo al tomillo 180g':0,
+  // Cuadril
   'Tiras cuadril hongos 170g':0,'Tiras cuadril veg 200g':0,'Tiras cuadril veg 300g':0,
+  // Roast Beef
+  'Roast Beef 200g':0,
+  // Peceto (en kg, no unidades)
+  'Milanesa Ternera':0,
 };
 
 const DEFAULT_USERS = [
@@ -1419,8 +1453,8 @@ function renderProceso(){
   <div class="prot-tabs">${prots.map(p=>`<button class="ptab${p===activeProt?' active':''}" onclick="setProtProceso('${p}',this)">${p}</button>`).join('')}</div>
   <div class="modo-tabs">
     <button class="mtab${activeModo==='limpieza'?' active':''}" onclick="setModo('limpieza',this)">1. Limpieza</button>
-    <button class="mtab${activeModo==='coccion'?' active':''}" onclick="setModo('coccion',this)">2. Cocción</button>
-    <button class="mtab${activeModo==='apertura'?' active':''}" onclick="setModo('apertura',this)">3. Apertura de bolsa</button>
+    ${activeProt!=='Peceto'?`<button class="mtab${activeModo==='coccion'?' active':''}" onclick="setModo('coccion',this)">2. Cocción</button>`:''}
+    ${activeProt!=='Peceto'&&activeProt!=='Lomo'?`<button class="mtab${activeModo==='apertura'?' active':''}" onclick="setModo('apertura',this)">3. Apertura de bolsa</button>`:''}
     <button class="mtab${activeModo==='armado'?' active':''}" onclick="setModo('armado',this)">4. Armado</button>
     <button class="mtab${activeModo==='despacho_emp'?' active':''}" onclick="setModo('despacho_emp',this)">🏢 Despacho empresas</button>
   </div>
@@ -1545,11 +1579,15 @@ function renderProcesoForm(){
     </div>`;
 
   } else if(activeModo==='armado'){
-    const subsCocidos=subs.filter(s=>s.estado==='cocido'||s.estado==='crudo');
+    // Lomo y Peceto: armado desde cocido/lpu directo. Resto: solo desde abierto.
+    const proteinasDirectas = ['Lomo','Peceto'];
+    const subsCocidos = proteinasDirectas.includes(activeProt)
+      ? subs.filter(s=>s.estado==='cocido'||s.estado==='crudo'||s.estado==='lpu')
+      : subs.filter(s=>s.estado==='abierto');
     const prodsProt=DB.productos.filter(p=>p.proteina===activeProt);
     if(prodsProt.length===0){frm.innerHTML=`<div class="card"><div class="info-box">No hay productos definidos para esta proteína.</div></div>`;return;}
     frm.innerHTML=`<div class="card">
-      <div class="info-box">Tomás de un sub-stock y generás unidades de producto terminado.</div>
+      <div class="info-box">${['Lomo','Peceto'].includes(activeProt)?'Tomás del sub-stock y generás producto terminado.':'Solo podés armar desde bolsas abiertas. Primero registrá la apertura en el paso 3.'}</div>
       <div class="frow">
         <div class="fg" style="max-width:130px"><label>Fecha</label><input type="date" id="pf-fecha" value="${today()}"></div>
         <div class="fg"><label>Origen</label>
@@ -1647,12 +1685,18 @@ function calcCoccion(){
 // Sub-stocks que solo pueden generar ciertos productos (restricciones)
 // Si un sub-stock no está aquí, permite todos los productos de la proteína
 const SS_RESTRICCIONES = {
-  // Recortes de pechuga: solo tiras y cubos (no pechugas enteras)
-  'pechuga_recortes_cocido':         ss=>ss.substock==='pechuga_tiras_cocido'||ss.substock==='pechuga_cubos_cocido',
-  'pechuga_recortes_cocido_abierto': ss=>ss.substock==='pechuga_tiras_cocido'||ss.substock==='pechuga_cubos_cocido',
-  // Recortes tapa: solo goulash y pulled (no brisket entero)
-  'tapa_recortes_cocido':            ss=>ss.substock==='tapa_recortes_cocido',
-  'tapa_recortes_cocido_abierto':    ss=>ss.substock==='tapa_recortes_cocido',
+  // Pechuga LPU abierta: solo medallones de pechuga y wraps/ensaladas
+  'pechuga_lpu_cocido_abierto': ss=>
+    ss.substock==='pechuga_lpu_cocido_abierto',
+  // Recortes pechuga abiertos: curry, teriyaki, tiras, tarta (no medallones enteros)
+  'pechuga_recortes_cocido_abierto': ss=>
+    ss.substock==='pechuga_recortes_cocido_abierto',
+  // Recortes tapa abiertos: solo goulash, pulled, wraps (no ternera entera)
+  'tapa_recortes_cocido_abierto': ss=>
+    ss.substock==='tapa_recortes_cocido_abierto',
+  // Brisket tapa abierto: solo ternera braseada
+  'tapa_brisket_cocido_abierto': ss=>
+    ss.substock==='tapa_brisket_cocido_abierto',
 };
 
 function filtrarProductosPorOrigen(){
@@ -1787,9 +1831,12 @@ function addProcesoApertura(){
 
 function calcArmado(){
   const ki=parseFloat(document.getElementById('pf-kgin')?.value)||0;
-  const uni=parseInt(document.getElementById('pf-unidades')?.value)||0;
+  const uni=parseFloat(document.getElementById('pf-unidades')?.value)||0;
   const sel=document.getElementById('pf-producto');if(!sel)return;
   const prod=DB.productos.find(p=>p.ptKey===sel.value||p.nombre===sel.value);
+  // Actualizar label si es modoKg (Peceto)
+  const uniLabel=document.getElementById('pf-unidades-label');
+  if(uniLabel) uniLabel.textContent=prod?.modoKg?'Kg producto final':'Unidades a generar';
   const prev=document.getElementById('pf-prev');if(!prev||!prod||!ki||!uni)return;
   const ku=(prod.kgPorcion*uni).toFixed(3);
   const rec=Math.max(0,ki-parseFloat(ku)).toFixed(3);
@@ -3935,6 +3982,10 @@ function migrateDB(){
   // Asegurar que PT keys existan (excepto ventaDirecta que no tienen stock propio)
   DB.productos.forEach(p=>{
     if(!p.ventaDirecta && DB.pt[p.ptKey]===undefined) DB.pt[p.ptKey]=0;
+  });
+  // Asegurar que sub-stocks nuevos existan con valor 0
+  Object.values(DB.substocks).flat().forEach(s=>{
+    if(DB.ss[s.key]===undefined) DB.ss[s.key]=0;
   });
   // Asegurar array de despachos empresas
   if(!DB.despachosM2) DB.despachosM2=[];
