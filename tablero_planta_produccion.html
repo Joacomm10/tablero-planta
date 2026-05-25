@@ -403,6 +403,23 @@ async function _doSaveDB(){
   }catch(e){console.error('Error guardando en Supabase:',e);return false;}
 }
 
+// Guarda directamente en Supabase SIN merge — para resets y operaciones críticas
+async function saveDBDirect(dbObj){
+  try{
+    await fetch(`${SB_URL}/rest/v1/datos`,{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify({id:SB_RECORD_ID, valor:dbObj, updated_at:new Date().toISOString()})
+    });
+    return true;
+  }catch(e){console.error('Error en saveDBDirect:',e);return false;}
+}
+
 function mergeArrayById(remote, local){
   // Une dos arrays, deduplicando por id. En caso de conflicto, local gana.
   // Los IDs en _deletedIds se ignoran aunque estén en el remoto (para que los borrados persistan).
@@ -3703,17 +3720,17 @@ function delEmpleado(i){
 
 async function resetDatosOperativos(){
   const ok = await showConfirm(
-    '¿Resetear todos los datos operativos?\n\nSe borrarán: stocks, procesos, ventas, ingresos, despachos M2, lotes, calidad.\n\nSe conservarán: usuarios, productos, sub-stocks, rendimientos teóricos, empleados, proveedores.\n\nEsta acción NO se puede deshacer.'
+    '¿Resetear todos los datos operativos? Se borrarán: stocks, procesos, ventas, ingresos, despachos, lotes y calidad. Se conservará toda la configuración. Esta acción NO se puede deshacer.'
   );
   if(!ok) return;
-  const ok2 = await showConfirm('Última confirmación: ¿estás seguro? Se perderán todos los registros históricos.');
+  const ok2 = await showConfirm('Última confirmación: ¿estás seguro?');
   if(!ok2) return;
 
   // Preservar configuración
   const {users, teorico, substocks, productos, productosM2, empleados, proveedores} = DB;
 
-  // Resetear todo lo operativo
-  DB = {
+  // Construir DB limpia
+  const dbLimpia = {
     ingresos: [],
     procesos: [],
     ventas: [],
@@ -3725,7 +3742,6 @@ async function resetDatosOperativos(){
     consumoInterno: [],
     ss: JSON.parse(JSON.stringify(DEFAULT_SS)),
     pt: JSON.parse(JSON.stringify(DEFAULT_PT)),
-    // Configuración preservada
     users,
     teorico,
     substocks,
@@ -3735,10 +3751,14 @@ async function resetDatosOperativos(){
     proveedores: proveedores||[],
   };
 
-  // Limpiar _deletedIds también para empezar limpio
+  // Guardar DIRECTO en Supabase sin merge
+  const ok3 = await saveDBDirect(dbLimpia);
+  if(!ok3){ alert('Error al guardar. Intentá de nuevo.'); return; }
+
+  // Actualizar DB local
+  DB = dbLimpia;
   _deletedIds = new Set();
 
-  await saveDB();
   alert('✅ Datos operativos reseteados. La configuración fue preservada.');
   renderTab('resumen');
 }
@@ -3748,9 +3768,11 @@ async function resetDB(){
   if(!ok) return;
   const ok2 = await showConfirm('Última confirmación: esto borra usuarios, productos, sub-stocks y todos los datos. ¿Continuás?');
   if(!ok2) return;
-  DB = defaultDB();
+  const dbLimpia = defaultDB();
+  const ok3 = await saveDBDirect(dbLimpia);
+  if(!ok3){ alert('Error al guardar. Intentá de nuevo.'); return; }
+  DB = dbLimpia;
   _deletedIds = new Set();
-  await saveDB();
   alert('Base reseteada completamente.');
   renderTab('resumen');
 }
