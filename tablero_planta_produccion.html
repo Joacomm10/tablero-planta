@@ -1808,8 +1808,8 @@ function addProcesoApertura(){
   const kgout=parseFloat(document.getElementById('pf-kgout').value);
   const resp=document.getElementById('pf-resp')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(kgout)||kgin<=0){alert('Completá todos los campos.');return;}
-  if(kgout>kgin){alert('Los kg reales no pueden ser mayores a los que entraron.');return;}
-  if(getSS(origen)<kgin){if(!confirm(`Stock insuficiente: hay ${fmt(getSS(origen),2)} kg. ¿Continuás?`))return;}
+  if(kgout>kgin){showProcesoError('Los kg de salida no pueden ser mayores a los kg que entraron.');return;}
+  if(!checkStock(origen, kgin, 'kg')) return;
   const ssO=findSSdef(origen);
   const merma=kgin-kgout;
   const ssAbierto=origen+'_abierto';
@@ -1895,8 +1895,7 @@ function addBajaEmpresa(){
   const nota = document.getElementById('pf-nota-baja')?.value||'';
   if(!ss||isNaN(kg)||kg<=0){alert('Completá sub-stock y kg.');return;}
   const ssDef = findSSdef(ss);
-  const stockActual = getSS(ss);
-  if(stockActual<kg){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
+  if(!checkStock(ss, kg, 'kg')) return;
   setSS(ss, stockActual-kg);
   DB.procesos.push({
     fecha, tipo:'baja_empresa', proteina:ssDef?.proteina||'',
@@ -1923,6 +1922,15 @@ function addProcesoLimpieza(){
   const dists={};
   subs.forEach(s=>{const el=document.getElementById('pf-'+s.key);dists[s.key]=parseFloat(el?.value)||0;});
   const mpSS=DB.substocks[activeProt]?.find(s=>s.estado==='mp');
+  // Validar que haya suficiente MP
+  if(mpSS && !checkStock(mpSS.key, kgin, 'kg')) return;
+  // Validar que la suma distribuida no supere kg entrada - desperdicio
+  const totalDist = Object.values(dists).reduce((a,b)=>a+b,0);
+  const kgNeto = kgin - kdesp;
+  if(totalDist > kgNeto + 0.001){
+    showProcesoError(`La suma distribuida (${fmt(totalDist,3)} kg) supera los kg netos disponibles (${fmt(kgNeto,3)} kg).`);
+    return;
+  }
   if(mpSS)setSS(mpSS.key,getSS(mpSS.key)-kgin);
   subs.forEach(s=>setSS(s.key,getSS(s.key)+(dists[s.key]||0)));
   const rec={fecha,proteina:activeProt,tipo:'limpieza',kg_in:kgin,kg_out:kgin-kdesp,kg_desperdicio:kdesp,
@@ -1930,6 +1938,32 @@ function addProcesoLimpieza(){
   if(loteId)rec.lote_id=loteId;
   DB.procesos.push(rec);
   saveDB();renderProceso();checkAlertas();
+}
+
+function showProcesoError(msg){
+  // Muestra error en el formulario de proceso sin usar alert()
+  let errDiv = document.getElementById('pf-error');
+  if(!errDiv){
+    errDiv = document.createElement('div');
+    errDiv.id = 'pf-error';
+    errDiv.style.cssText = 'background:#fee2e2;color:#a32d2d;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:500;margin-bottom:10px';
+    const btn = document.querySelector('[onclick*="addProceso"], [onclick*="addBaja"]');
+    const frm = document.getElementById('proceso-form') || document.querySelector('.card');
+    if(frm) frm.insertBefore(errDiv, frm.firstChild);
+  }
+  errDiv.textContent = '⚠ ' + msg;
+  errDiv.style.display = 'block';
+  setTimeout(()=>{ if(errDiv) errDiv.style.display='none'; }, 5000);
+}
+
+function checkStock(ssKey, cantidad, label){
+  // Retorna true si hay suficiente stock, false y muestra error si no
+  const disponible = getSS(ssKey);
+  if(cantidad > disponible){
+    showProcesoError(`Stock insuficiente: querés usar ${fmt(cantidad,3)} ${label||'kg'} pero solo hay ${fmt(disponible,3)} ${label||'kg'} disponibles en ese sub-stock.`);
+    return false;
+  }
+  return true;
 }
 
 function updateCoccionLabels(){
@@ -1957,7 +1991,8 @@ function addProcesoCoccion(){
   const loteId=document.getElementById('pf-lote')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(kgout)||kgin<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);const ssD=findSSdef(destino);
-  if(getSS(origen)<kgin){if(!confirm(`Stock insuficiente: hay ${fmt(getSS(origen),2)} kg. ¿Continuás?`))return;}
+  const unidadCoccion = ssO?.type==='u'?'u.':'kg';
+  if(!checkStock(origen, kgin, unidadCoccion)) return;
   setSS(origen,getSS(origen)-kgin);
   setSS(destino,getSS(destino)+kgout);
   const rec={fecha,proteina:activeProt,tipo:'coccion',kg_in:kgin,kg_out:kgout,kg_desperdicio:kgin-kgout,
@@ -1981,7 +2016,8 @@ function addProcesoArmado(){
   const loteId=document.getElementById('pf-lote')?.value||'';
   if(!fecha||isNaN(kgin)||isNaN(unidades)||kgin<=0||unidades<=0){alert('Completá todos los campos.');return;}
   const ssO=findSSdef(origen);
-  if(getSS(origen)<kgin){if(!confirm('Stock insuficiente. ¿Continuás?'))return;}
+  const unidadArmado = ssO?.type==='u'?'u.':'kg';
+  if(!checkStock(origen, kgin, unidadArmado)) return;
   setSS(origen,getSS(origen)-kgin);
   setPT(ptKey,getPT(ptKey)+unidades);
   DB.procesos.push({fecha,proteina:activeProt,tipo:'armado',kg_in:kgin,kg_out:kgin-recorte,kg_desperdicio:recorte,
