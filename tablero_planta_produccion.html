@@ -207,10 +207,9 @@ const DEFAULT_SUBSTOCKS = {
     {key:'roastbeef_lpu_cocido_abierto',label:'Roast Beef LPU cocido (abierto)', estado:'abierto',type:'kg', color:'#fff3cd', tc:'#856404'},
   ],
   'Peceto': [
-    {key:'peceto_mp',             label:'Peceto (entero)',                   estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
-    {key:'peceto_milanesa_lpu',   label:'Milanesa LPU (limpia)',             estado:'lpu',   type:'kg', color:'#e6f1fb', tc:'#0c447c'},
-    {key:'peceto_recortes',       label:'Recortes peceto',                   estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
-    {key:'peceto_milanesa_final', label:'Milanesa apanada (kg)',             estado:'cocido',type:'kg', color:'#e1f5ee', tc:'#085041'},
+    {key:'peceto_mp',           label:'Peceto (entero)',        estado:'mp',    type:'kg', color:'#f1efe8', tc:'#444'},
+    {key:'peceto_milanesa_lpu', label:'Milanesa LPU (limpia)',  estado:'lpu',   type:'kg', color:'#e6f1fb', tc:'#0c447c'},
+    {key:'peceto_recortes',     label:'Recortes peceto',        estado:'crudo', type:'kg', color:'#faeeda', tc:'#633806'},
   ]
 };
 
@@ -263,7 +262,7 @@ const DEFAULT_PRODUCTOS = [
   // Roast Beef — armado desde abierto
   {nombre:'Roast Beef - 200g',         proteina:'Roast Beef', kgPorcion:0.200, substock:'roastbeef_lpu_cocido_abierto', chain:['limpieza','coccion','apertura'], ptKey:'Roast Beef 200g', stockNombre:'Roast Beef - 200g'},
   // Peceto — limpieza → armado directo en kg (sin cocción, sin apertura)
-  {nombre:'Milanesa Ternera',          proteina:'Peceto', kgPorcion:null, substock:'peceto_milanesa_lpu', chain:['limpieza'], ptKey:'Milanesa Ternera', stockNombre:'Milanesa Ternera', modoKg:true},
+  {nombre:'Milanesa Ternera',           proteina:'Peceto', kgPorcion:null, substock:'peceto_milanesa_lpu', chain:['limpieza'], ptKey:'Milanesa Ternera', stockNombre:'Milanesa Ternera', modoKg:true},
 ];
 
 // Stock inicial
@@ -293,7 +292,7 @@ const DEFAULT_SS = {
   roastbeef_mp:0, roastbeef_lpu:0,
   roastbeef_lpu_cocido:0, roastbeef_lpu_cocido_abierto:0,
   // Peceto
-  peceto_mp:0, peceto_milanesa_lpu:0, peceto_recortes:0, peceto_milanesa_final:0,
+  peceto_mp:0, peceto_milanesa_lpu:0, peceto_recortes:0,
 };
 
 const DEFAULT_PT = {
