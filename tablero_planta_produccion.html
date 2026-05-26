@@ -1625,7 +1625,7 @@ function renderProcesoForm(){
     const bajasDelDia=(DB.procesos||[]).filter(p=>p.tipo==='baja_empresa'&&p.fecha===fechaRef);
     const bajasPorSS={};
     bajasDelDia.forEach(b=>{if(!bajasPorSS[b.substock_origen])bajasPorSS[b.substock_origen]=0;bajasPorSS[b.substock_origen]+=b.kg_in;});
-    const ssDisp=Object.values(DB.substocks).flat().filter(s=>s.type==='kg'&&(s.estado==='cocido'||s.estado==='abierto'));
+    const ssDisp=Object.values(DB.substocks).flat().filter(s=>s.estado==='abierto');
     const teoricoFilas=Object.entries(teoricoPorSS).map(([ss,d])=>{
       const bajado=bajasPorSS[ss]||0;const diff=bajado-d.kg;
       const dc=Math.abs(diff)<0.2?'#085041':Math.abs(diff)<0.5?'#854f0b':'#a32d2d';
