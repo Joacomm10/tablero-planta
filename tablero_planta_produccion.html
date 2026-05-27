@@ -1491,18 +1491,18 @@ function renderProceso(){
   </div>
   <div id="proceso-form"></div>
   ${activeModo!=='despacho_emp'?`
-  <div class="card">
+  <div class="card" id="hist-proceso-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div class="ctitle" style="margin:0">Últimos 15 movimientos — ${activeProt} <span style="font-size:10px;color:#aaa;font-weight:normal">hacé click para ver detalle</span></div>
+      <div class="ctitle hist-prot-titulo" style="margin:0">Últimos 15 movimientos — ${activeProt} <span style="font-size:10px;color:#aaa;font-weight:normal">hacé click para ver detalle</span></div>
       <button class="btn" style="font-size:11px" onclick="abrirHistProcesos('${activeProt}',0)">Ver historial completo →</button>
     </div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Fecha</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
-      <tbody>${histHTML||'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin movimientos de ${activeProt}</td></tr>'}</tbody>
+      <thead><tr><th>Fecha</th><th>Proteína</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
+      <tbody>${histHTML||'<tr><td colspan="8" style="text-align:center;color:#888;padding:1rem">Sin movimientos de ${activeProt}</td></tr>'}</tbody>
     </table></div>
-    ${procsFiltrados.length>15?`<div style="font-size:11px;color:#888;text-align:center;padding:6px 0">
+    <div class="hist-ver-todo" style="font-size:11px;color:#888;text-align:center;padding:6px 0;display:${procsFiltrados.length>15?'block':'none'}">
       Mostrando 15 de ${procsFiltrados.length} · <button class="btn" style="font-size:11px" onclick="abrirHistProcesos('${activeProt}',0)">Ver todo →</button>
-    </div>`:''}
+    </div>
   </div>`:''}
   <div class="card" id="hist-bajas-m2">
     <div class="ctitle">Historial bajas — Despacho empresas</div>
@@ -1511,7 +1511,7 @@ function renderProceso(){
   renderProcesoForm();
 }
 
-function buildProcesoRows(lista, conProtCol=false){
+function buildProcesoRows(lista, conProtCol=true){
   if(!lista||lista.length===0) return '';
   return lista.map(p=>{
     const idx=DB.procesos.findIndex(pr=>pr.id===p.id);
@@ -1570,7 +1570,24 @@ function abrirHistProcesos(prot, page){
   );
 }
 
-function setProtProceso(p,el){activeProt=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
+function setProtProceso(p,el){
+  activeProt=p;
+  document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderProcesoForm();
+  // Rerenderizar el historial filtrado por la proteína activa
+  const procsFiltrados=DB.procesos.filter(pr=>pr.proteina===activeProt&&pr.tipo!=='baja_empresa').slice().reverse();
+  const procsVista=procsFiltrados.slice(0,15);
+  const histCard=document.getElementById('hist-proceso-card');
+  if(histCard){
+    const tbody=histCard.querySelector('tbody');
+    const titulo=histCard.querySelector('.hist-prot-titulo');
+    const verTodo=histCard.querySelector('.hist-ver-todo');
+    if(titulo)titulo.textContent='Últimos 15 movimientos — '+activeProt;
+    if(tbody)tbody.innerHTML=buildProcesoRows(procsVista)||'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin movimientos de '+activeProt+'</td></tr>';
+    if(verTodo)verTodo.style.display=procsFiltrados.length>15?'block':'none';
+  }
+}
 function setModo(m,el){
   activeModo=m;
   // En modo despacho_emp no aplica proteína — ocultamos tabs de proteína
