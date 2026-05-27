@@ -2960,8 +2960,13 @@ async function importarPedidos(){
     });
   }
 
+  // Nombres de pestañas que NUNCA deben aceptarse como pestañas de pedidos
+  const PESTANAS_EXCLUIDAS = ['stock', 'Stock', 'STOCK', 'resumen', 'Resumen', 'config', 'Config'];
+
   let rawText = null, sheetName = null;
   for(const sn of variantes){
+    // Nunca leer pestañas que no son de pedidos (ej: "stock")
+    if(PESTANAS_EXCLUIDAS.some(ex => sn.trim().toLowerCase() === ex.toLowerCase())) continue;
     try{
       const r = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sn)}`);
       const t = await r.text();
@@ -2974,7 +2979,7 @@ async function importarPedidos(){
     }catch(e){ continue; }
   }
   if(!rawText){
-    prev.innerHTML=`<div class="alert-row">No se encontró la pestaña para "${fechaFiltro}". Verificá que exista en la planilla y que sea pública.</div>`;
+    prev.innerHTML=`<div class="alert-row">No se encontró la pestaña "pedidos ${fechaFiltro}" en la planilla. Verificá que:<br>• La pestaña se llame exactamente "pedidos ${fechaFiltro}" (con un espacio)<br>• La planilla sea pública ("cualquiera con el link puede ver")<br>• La fecha esté en formato D-M (ej: 27-5, no 27-05)</div>`;
     return;
   }
   try{
@@ -2985,6 +2990,14 @@ async function importarPedidos(){
     // Detectar estructura: producto en col A o D, cantidad en la última col con número
     // Formato abril: col D=producto, col E=cantidad
     // Formato mayo+: col A=producto, última columna=cantidad del pedido
+    // SEGURIDAD: verificar que no sea una pestaña de stock (encabezados distintos)
+    const HEADERS_EXCLUIDOS = ['e.i.', 'in total', 'out total', 'stock', 'par min', 'par max', 'lote', 'tamaño', 'precio', 'categoria'];
+    const primeraFila = rows[0]?.c?.map(c=>(c?.v??c?.f??'').toString().toLowerCase().trim())||[];
+    const esPestanaStock = primeraFila.some(h => HEADERS_EXCLUIDOS.includes(h));
+    if(esPestanaStock){
+      prev.innerHTML=`<div class="alert-row">La pestaña detectada parece ser la planilla de stock, no de pedidos. Verificá que la pestaña "pedidos ${fechaFiltro}" exista.</div>`;
+      return;
+    }
     let colProd = 3, colCant = 4;
     const filasMuestra = rows.filter(r=>r.c&&r.c.some(c=>c));
     for(const row of filasMuestra){
