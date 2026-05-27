@@ -96,6 +96,20 @@ input:focus,select:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px 
 .panel-body{padding:18px;flex:1}
 .panel-close{width:28px;height:28px;border-radius:50%;border:1px solid #e5e5e0;background:#f0efe8;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:#666}
 .panel-close:hover{background:#e5e5e0}
+/* Drawer de historial completo */
+.hist-drawer{position:fixed;top:0;right:-100%;width:min(720px,100vw);height:100vh;background:#fff;box-shadow:-4px 0 32px rgba(0,0,0,0.15);z-index:300;display:flex;flex-direction:column;transition:right .25s cubic-bezier(.4,0,.2,1)}
+.hist-drawer.open{right:0}
+.hist-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e5e5e0;flex-shrink:0}
+.hist-drawer-title{font-size:15px;font-weight:600;color:#1a1a1a}
+.hist-drawer-body{flex:1;overflow-y:auto;padding:16px 20px}
+.hist-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:299;display:none}
+.hist-drawer-overlay.open{display:block}
+/* Paginación */
+.pag-bar{display:flex;align-items:center;gap:8px;justify-content:center;padding:12px 0;font-size:12px}
+.pag-btn{padding:4px 10px;border:1px solid #d5d5d0;border-radius:6px;background:#fff;cursor:pointer;font-size:12px}
+.pag-btn:hover{background:#f5f5f0}
+.pag-btn:disabled{opacity:.4;cursor:default}
+.pag-info{color:#888}
 .combo-wrap{position:relative;width:100%}
 .combo-input{padding:7px 9px;font-size:12px;border-radius:8px;border:1px solid #d5d5d0;background:#fff;color:#1a1a1a;width:100%}
 .combo-input:focus{outline:none;border-color:#93b8e8;box-shadow:0 0 0 3px rgba(55,138,221,0.1)}
@@ -124,6 +138,14 @@ tr.proc-row:hover td{background:#f8f8f5}
   </div>
 </div>
 <div class="panel-overlay" id="panel-overlay" onclick="cerrarPanel()"></div>
+<div class="hist-drawer-overlay" id="hist-drawer-overlay" onclick="cerrarHistDrawer()"></div>
+<div class="hist-drawer" id="hist-drawer">
+  <div class="hist-drawer-header">
+    <span class="hist-drawer-title" id="hist-drawer-title">Historial completo</span>
+    <button class="panel-close" onclick="cerrarHistDrawer()">✕</button>
+  </div>
+  <div class="hist-drawer-body" id="hist-drawer-body"></div>
+</div>
 <div class="panel-lateral" id="panel-lateral">
   <div class="panel-header">
     <div style="font-size:13px;font-weight:500;color:#1a1a1a" id="panel-title">Detalle del proceso</div>
@@ -1354,22 +1376,55 @@ function renderIngreso(){
     <button class="btn btn-primary" onclick="addIngreso()">+ Agregar ingreso</button>
   </div>
   <div class="card">
-    <div class="ctitle">Ingresos registrados</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="ctitle" style="margin:0">Ingresos — última semana</div>
+      <button class="btn" style="font-size:11px" onclick="abrirHistIngresos(0)">Ver historial completo →</button>
+    </div>
     <div style="overflow-x:auto"><table>
       <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Lote</th><th>Usuario</th><th></th></tr></thead>
-      <tbody>${DB.ingresos.length===0?'<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>':
-      DB.ingresos.slice().reverse().map((r,i)=>{const idx=DB.ingresos.length-1-i;
-        return `<tr><td>${fmtFecha(r.fecha)}</td><td>${r.proteina}</td><td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td><td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'-'}</td>
-        <td>${r.lote_id?`<span class="badge binfo">${r.lote_id}</span>`:'<span style="color:#ccc;font-size:11px">—</span>'}</td>
-        <td style="color:#888">${r.usuario||'-'}</td>
-        <td style="display:flex;gap:4px;align-items:center">
-          ${r.lote_id?`<button class="btn-sm" title="Imprimir etiqueta" onclick="imprimirEtiquetaLote('${r.lote_id}','MP · ${r.proteina}')">🖨️</button>`:''}
-          ${CU.role==='gerente'?`<button class="btn-sm" onclick="delIngreso(${idx})">x</button>`:''}
-        </td></tr>`;
-      }).join('')}</tbody>
+      <tbody>${buildIngresoRows(DB.ingresos.slice().reverse().filter(r=>{
+        const d=new Date(r.fecha);const s=new Date();s.setDate(s.getDate()-7);return d>=s;
+      }), true)}</tbody>
     </table></div>
+    ${DB.ingresos.filter(r=>{const d=new Date(r.fecha);const s=new Date();s.setDate(s.getDate()-7);return d<s;}).length>0
+      ?`<div style="font-size:11px;color:#888;text-align:center;padding:6px 0">
+          Solo mostrando última semana · <button class="btn" style="font-size:11px" onclick="abrirHistIngresos(0)">Ver todo el historial →</button>
+        </div>`:''
+    }
   </div>`;
   setTimeout(()=>actualizarLotePreview(),0);
+}
+
+function buildIngresoRows(lista, soloVista=false){
+  if(lista.length===0) return '<tr><td colspan="9" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>';
+  return lista.map(r=>{
+    const idx=DB.ingresos.findIndex(i=>i.id===r.id);
+    return `<tr>
+      <td>${fmtFecha(r.fecha)}</td><td>${r.proteina}</td>
+      <td>${fmt(r.kg_bruto,2)}</td><td>$${fmt(r.costo_kg,2)}</td>
+      <td>$${fmt(r.kg_bruto*r.costo_kg,2)}</td><td>${r.proveedor||'—'}</td>
+      <td>${r.lote_id?`<span class="badge binfo">${r.lote_id}</span>`:'<span style="color:#ccc;font-size:11px">—</span>'}</td>
+      <td style="color:#888">${r.usuario||'—'}</td>
+      <td style="display:flex;gap:4px;align-items:center">
+        ${r.lote_id?`<button class="btn-sm" title="Imprimir etiqueta" onclick="imprimirEtiquetaLote('${r.lote_id}','MP · ${r.proteina}')">🖨️</button>`:''}
+        ${CU.role==='gerente'&&idx>=0?`<button class="btn-sm" onclick="delIngreso(${idx})">x</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+const HIST_PER_PAGE = 30;
+function abrirHistIngresos(page){
+  _histPage=page;
+  const lista=DB.ingresos.slice().reverse();
+  const total=lista.length;
+  const slice=lista.slice(page*HIST_PER_PAGE,(page+1)*HIST_PER_PAGE);
+  const html=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Fecha</th><th>Proteína</th><th>Kg bruto</th><th>$/kg</th><th>Costo total</th><th>Proveedor</th><th>Lote</th><th>Usuario</th><th></th></tr></thead>
+    <tbody>${buildIngresoRows(slice)}</tbody>
+  </table></div>
+  ${buildPagBar(total,page,HIST_PER_PAGE,'abrirHistIngresos')}`;
+  abrirHistDrawer('Historial completo de ingresos', html);
 }
 
 function actualizarLotePreview(){
@@ -1417,29 +1472,12 @@ function delIngreso(i){
 function renderProceso(){
   const el=document.getElementById('proceso');
   const prots=Object.keys(DB.substocks);
-  const histHTML=DB.procesos.length===0?'<tr><td colspan="8" style="text-align:center;color:#888;padding:1rem">Sin registros — hacé click en una fila para ver el detalle</td></tr>':
-    DB.procesos.slice().reverse().map((p,i)=>{
-      const idx=DB.procesos.length-1-i;
-      const teo=DB.teorico[p.proteina];
-      const rend=p.kg_in>0?(p.kg_out/p.kg_in*100):0;
-      let teoVal=null;
-      if(p.tipo==='limpieza'&&teo)teoVal=100-teo.desp_limpieza_pct;
-      if(p.tipo==='coccion'&&teo&&teo.coccion_pct)teoVal=teo.coccion_pct;
-      const dev=teoVal?rend-teoVal:null;
-      const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
-      const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
-      const loteBadge=p.lote_id?`<span class="badge binfo">${p.lote_id}</span>`:'';
-      return `<tr class="proc-row" onclick="abrirPanel(${idx})">
-        <td>${fmtFecha(p.fecha)}</td>
-        <td>${p.proteina}</td>
-        <td><span class="badge ${tl}">${p.tipo}</span></td>
-        <td>${fmt(p.kg_in,2)} → ${fmt(p.kg_out,2)} kg</td>
-        <td>${p.tipo==='armado'?(p.unidades||0)+' u.':rend.toFixed(1)+'%'}</td>
-        <td><span class="badge ${dc}">${dev!==null?(dev>=0?'+':'')+dev.toFixed(1)+'%':'—'}</span></td>
-        <td>${loteBadge}</td>
-        <td onclick="event.stopPropagation()">${CU.role==='gerente'?`<button class="btn-sm" onclick="delProceso(${idx})">x</button>`:''}</td>
-      </tr>`;
-    }).join('');
+  // Últimos 15 procesos de la proteína activa (o todos si es despacho_emp)
+  const procsFiltrados = activeModo==='despacho_emp'
+    ? [] // despacho tiene su propio historial abajo
+    : DB.procesos.filter(p=>p.proteina===activeProt&&p.tipo!=='baja_empresa').slice().reverse();
+  const procsVista = procsFiltrados.slice(0,15);
+  const histHTML = buildProcesoRows(procsVista);
 
   el.innerHTML=`
   <p class="sechead">Registrar proceso de producción</p>
@@ -1452,18 +1490,84 @@ function renderProceso(){
     <button class="mtab${activeModo==='despacho_emp'?' active':''}" onclick="setModo('despacho_emp',this)">🏢 Despacho empresas</button>
   </div>
   <div id="proceso-form"></div>
+  ${activeModo!=='despacho_emp'?`
   <div class="card">
-    <div class="ctitle">Historial de procesos <span style="font-size:10px;color:#aaa;font-weight:normal">— hacé click en una fila para ver el detalle</span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="ctitle" style="margin:0">Últimos 15 movimientos — ${activeProt} <span style="font-size:10px;color:#aaa;font-weight:normal">hacé click para ver detalle</span></div>
+      <button class="btn" style="font-size:11px" onclick="abrirHistProcesos('${activeProt}',0)">Ver historial completo →</button>
+    </div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Fecha</th><th>Proteína</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
-      <tbody>${histHTML}</tbody>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
+      <tbody>${histHTML||'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin movimientos de ${activeProt}</td></tr>'}</tbody>
     </table></div>
-  </div>
+    ${procsFiltrados.length>15?`<div style="font-size:11px;color:#888;text-align:center;padding:6px 0">
+      Mostrando 15 de ${procsFiltrados.length} · <button class="btn" style="font-size:11px" onclick="abrirHistProcesos('${activeProt}',0)">Ver todo →</button>
+    </div>`:''}
+  </div>`:''}
   <div class="card" id="hist-bajas-m2">
     <div class="ctitle">Historial bajas — Despacho empresas</div>
     ${renderHistBajasM2()}
   </div>`;
   renderProcesoForm();
+}
+
+function buildProcesoRows(lista, conProtCol=false){
+  if(!lista||lista.length===0) return '';
+  return lista.map(p=>{
+    const idx=DB.procesos.findIndex(pr=>pr.id===p.id);
+    const teo=DB.teorico[p.proteina];
+    const rend=p.kg_in>0?(p.kg_out/p.kg_in*100):0;
+    let teoVal=null;
+    if(p.tipo==='limpieza'&&teo)teoVal=100-teo.desp_limpieza_pct;
+    if(p.tipo==='coccion'&&teo&&teo.coccion_pct)teoVal=teo.coccion_pct;
+    const dev=teoVal?rend-teoVal:null;
+    const dc=dev===null?'bgray':Math.abs(dev)<3?'bok':Math.abs(dev)<8?'bwarn':'bdanger';
+    const tl=p.tipo==='limpieza'?'binfo':p.tipo==='coccion'?'bpurple':p.tipo==='apertura'?'bwarn':'bteal';
+    const loteBadge=p.lote_id?`<span class="badge binfo">${p.lote_id}</span>`:'';
+    return `<tr class="proc-row" onclick="abrirPanel(${idx})">
+      <td>${fmtFecha(p.fecha)}</td>
+      ${conProtCol?`<td>${p.proteina}</td>`:''}
+      <td><span class="badge ${tl}">${p.tipo}</span></td>
+      <td>${fmt(p.kg_in,2)} → ${fmt(p.kg_out,2)} kg</td>
+      <td>${p.tipo==='armado'?(p.unidades||0)+' u.':rend.toFixed(1)+'%'}</td>
+      <td><span class="badge ${dc}">${dev!==null?(dev>=0?'+':'')+dev.toFixed(1)+'%':'—'}</span></td>
+      <td>${loteBadge}</td>
+      <td onclick="event.stopPropagation()">${CU.role==='gerente'&&idx>=0?`<button class="btn-sm" onclick="delProceso(${idx})">x</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirHistProcesos(prot, page){
+  _histPage=page;
+  const lista=DB.procesos.filter(p=>p.proteina===prot&&p.tipo!=='baja_empresa').slice().reverse();
+  const total=lista.length;
+  const slice=lista.slice(page*HIST_PER_PAGE,(page+1)*HIST_PER_PAGE);
+  const html=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
+    <tbody>${buildProcesoRows(slice)||'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>'}</tbody>
+  </table></div>
+  ${buildPagBar(total,page,HIST_PER_PAGE,'(p)=>abrirHistProcesos("'+prot+'",p)')}`;
+  // Fix: paginación con proteína
+  const htmlFixed = html.replace(
+    /\(p\)=>abrirHistProcesos\("([^"]+)",p\)/g,
+    `abrirHistProcesos_${prot.replace(/\s/g,'_')}`
+  );
+  window[`abrirHistProcesos_${prot.replace(/\s/g,'_')}`] = (p)=>abrirHistProcesos(prot,p);
+  abrirHistDrawer(`Historial completo — ${prot}`, html.replace(
+    /buildPagBar\([^)]+\)/,'')
+    + buildPagBar(total,page,HIST_PER_PAGE,`(function(p){abrirHistProcesos('${prot}',p)})`));
+  // Simpler approach:
+  abrirHistDrawer(`Historial completo — ${prot}`,
+    `<div style="overflow-x:auto"><table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Entrada → Salida</th><th>Rend.</th><th>vs Teo.</th><th>Lote</th><th></th></tr></thead>
+      <tbody>${buildProcesoRows(slice)||'<tr><td colspan="7" style="text-align:center;color:#888;padding:1rem">Sin registros</td></tr>'}</tbody>
+    </table></div>
+    <div class="pag-bar">
+      ${page>0?`<button class="pag-btn" onclick="abrirHistProcesos('${prot}',${page-1})">← Anterior</button>`:'<button class="pag-btn" disabled>← Anterior</button>'}
+      <span class="pag-info">Página ${page+1} de ${Math.max(1,Math.ceil(total/HIST_PER_PAGE))} (${total} registros)</span>
+      ${page<Math.ceil(total/HIST_PER_PAGE)-1?`<button class="pag-btn" onclick="abrirHistProcesos('${prot}',${page+1})">Siguiente →</button>`:'<button class="pag-btn" disabled>Siguiente →</button>'}
+    </div>`
+  );
 }
 
 function setProtProceso(p,el){activeProt=p;document.querySelectorAll('.ptab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');renderProcesoForm();}
@@ -2140,6 +2244,66 @@ function editSS(k,v){if(CU.role!=='gerente')return;setSS(k,parseFloat(v));saveDB
 function editPT(k,v){if(CU.role!=='gerente')return;setPT(k,parseInt(v));saveDB();}
 
 // ============================================================
+// HISTORIAL COMPLETO DE VENTAS
+// ============================================================
+function abrirHistVentas(page){
+  _histPage=page;
+  // Agrupar todos los grupos y paginar
+  const todosGrupos=buildGruposVentas(DB.ventas);
+  const total=todosGrupos.length;
+  const slice=todosGrupos.slice(page*HIST_PER_PAGE,(page+1)*HIST_PER_PAGE);
+  const html=buildGruposHTML(slice)
+    +`<div class="pag-bar">
+      ${page>0?`<button class="pag-btn" onclick="abrirHistVentas(${page-1})">← Anterior</button>`:'<button class="pag-btn" disabled>← Anterior</button>'}
+      <span class="pag-info">Página ${page+1} de ${Math.max(1,Math.ceil(total/HIST_PER_PAGE))} (${total} grupos)</span>
+      ${page<Math.ceil(total/HIST_PER_PAGE)-1?`<button class="pag-btn" onclick="abrirHistVentas(${page+1})">Siguiente →</button>`:'<button class="pag-btn" disabled>Siguiente →</button>'}
+    </div>`;
+  abrirHistDrawer('Historial completo de ventas — Modelo 1', html);
+}
+
+function buildGruposVentas(ventas){
+  const grupos=[];const vistoBatch=new Set();const vistoSingle=new Map();
+  ventas.map((v,i)=>({...v,_idx:i})).reverse().forEach(v=>{
+    if(v.batch_id){
+      if(vistoBatch.has(v.batch_id))return;
+      vistoBatch.add(v.batch_id);
+      const del=ventas.filter((vv,i)=>vv.batch_id===v.batch_id).map((vv,i)=>({...vv,_idx:ventas.indexOf(vv)}));
+      grupos.push({tipo:'batch',batch_id:v.batch_id,fecha:v.fecha,items:del});
+    } else {
+      const k=v.fecha+'|'+v.producto;
+      if(!vistoSingle.has(k)){vistoSingle.set(k,{tipo:'single',fecha:v.fecha,producto:v.producto,items:[]});grupos.push(vistoSingle.get(k));}
+      vistoSingle.get(k).items.push(v);
+    }
+  });
+  return grupos;
+}
+
+function buildGruposHTML(grupos){
+  if(!grupos||grupos.length===0) return '<p style="color:#888;text-align:center;padding:1rem">Sin registros</p>';
+  return grupos.map(g=>{
+    if(g.tipo==='batch'){
+      const tot=g.items.reduce((a,v)=>a+v.unidades,0);
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f5f5f0;flex-wrap:wrap">
+          <span style="font-size:12px;color:#888">${fmtFecha(g.fecha)}</span>
+          <span style="font-weight:600;flex:1">Importación · ${g.items.length} productos · ${tot} u. total</span>
+          ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" onclick="delVentaBatch(${g.batch_id})">Borrar grupo</button>`:''}
+        </div>
+        <div style="padding:8px 14px;font-size:12px">${g.items.map(v=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${v.producto}</span><span style="font-weight:600">${v.unidades} u.</span></div>`).join('')}</div>
+      </div>`;
+    } else {
+      const tot=g.items.reduce((a,v)=>a+v.unidades,0);
+      return `<div style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:12px;color:#888">${fmtFecha(g.fecha)}</span>
+        <span style="flex:1">${g.producto}</span>
+        <span style="font-weight:600">${tot} u.</span>
+        ${CU.role==='gerente'?`<button class="btn-sm" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5" onclick="delVentasPorFechaProd('${g.fecha}','${g.producto}')">Borrar</button>`:''}
+      </div>`;
+    }
+  }).join('');
+}
+
+// ============================================================
 // DESPACHO EMPRESAS (MODELO 2)
 // ============================================================
 
@@ -2505,14 +2669,17 @@ function setRankingTab(t,el){
 // VENTAS
 // ============================================================
 function renderVentasHistorial(){
-  if(DB.ventas.length===0) return '<p style="color:#888;text-align:center;padding:1rem">Sin ventas registradas</p>';
+  // Filtrar última semana
+  const hace7 = new Date(); hace7.setDate(hace7.getDate()-7);
+  const ventasSemana = DB.ventas.filter(v=>new Date(v.fecha)>=hace7);
+  if(ventasSemana.length===0) return '<p style="color:#888;text-align:center;padding:1rem">Sin ventas en la última semana. <button class="btn" style="font-size:11px" onclick="abrirHistVentas(0)">Ver historial completo →</button></p>';
 
   // Agrupar por batch_id; ventas sin batch_id se agrupan por fecha+producto
   const grupos = [];
   const vistoBatch = new Set();
   const vistoSingle = new Map(); // "fecha|producto" -> grupo
 
-  DB.ventas.map((v,i)=>({...v,_idx:i})).reverse().forEach(v=>{
+  ventasSemana.map(v=>({...v,_idx:DB.ventas.indexOf(v)})).reverse().forEach(v=>{
     if(v.batch_id){
       if(vistoBatch.has(v.batch_id)) return;
       vistoBatch.add(v.batch_id);
@@ -2633,6 +2800,34 @@ async function delVentaBatch(batchId){
   await saveDB(); renderVentas(); checkAlertas();
 }
 
+// ============================================================
+// DRAWER DE HISTORIAL COMPLETO
+// ============================================================
+function abrirHistDrawer(titulo, htmlContent){
+  document.getElementById('hist-drawer-title').textContent = titulo;
+  document.getElementById('hist-drawer-body').innerHTML = htmlContent;
+  document.getElementById('hist-drawer').classList.add('open');
+  document.getElementById('hist-drawer-overlay').classList.add('open');
+}
+function cerrarHistDrawer(){
+  document.getElementById('hist-drawer').classList.remove('open');
+  document.getElementById('hist-drawer-overlay').classList.remove('open');
+}
+
+function buildPagBar(total, page, perPage, onPageFn){
+  const pages = Math.ceil(total/perPage);
+  if(pages<=1) return '';
+  return `<div class="pag-bar">
+    <button class="pag-btn" onclick="${onPageFn}(${page-1})" ${page===0?'disabled':''}>← Anterior</button>
+    <span class="pag-info">Página ${page+1} de ${pages} (${total} registros)</span>
+    <button class="pag-btn" onclick="${onPageFn}(${page+1})" ${page>=pages-1?'disabled':''}>Siguiente →</button>
+  </div>`;
+}
+
+// Estado de paginación global para el drawer
+let _histPage = 0;
+let _histFn = null; // función que rebuilds el drawer con nueva página
+
 function toggleBatch(bid){
   const det=document.getElementById('batch-detail-'+bid);
   const arr=document.getElementById('batch-arrow-'+bid);
@@ -2679,7 +2874,10 @@ function renderVentas(){
       <button class="btn btn-primary" onclick="addVenta()">+ Registrar venta</button>
     </div>
     <div class="card">
-      <div class="ctitle">Historial Modelo 1</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="ctitle" style="margin:0">Ventas — última semana</div>
+        <button class="btn" style="font-size:11px" onclick="abrirHistVentas(0)">Ver historial completo →</button>
+      </div>
       <div id="ventas-historial">${renderVentasHistorial()}</div>
     </div>
   </div>
